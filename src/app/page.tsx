@@ -1,11 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { api } from "@/lib/eden";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { useUsername } from "@/hooks/use-username";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const TTL_OPTIONS = [
+  { value: 600, label: "10 min" },
+  { value: 1800, label: "30 min" },
+  { value: 3600, label: "1 hr" },
+  { value: 43200, label: "12 hr" },
+  { value: 86400, label: "24 hr" },
+] as const;
 
 export default function Home() {
   return (
@@ -18,6 +28,7 @@ export default function Home() {
 function Lobby() {
   const router = useRouter();
   const { username } = useUsername();
+  const [selectedTtl, setSelectedTtl] = useState<number>(600);
 
   const searchParams = useSearchParams();
   const wasDestroyed = searchParams.get("destroyed") === "true";
@@ -25,7 +36,10 @@ function Lobby() {
 
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
-      const res = await api.room.create.post();
+      const res = await api.room.create.post(
+        {},
+        { query: { ttl: String(selectedTtl) } },
+      );
 
       if (res.status === 200) {
         router.push(`/room/${res.data?.roomId}`);
@@ -81,11 +95,33 @@ function Lobby() {
                   {username}
                 </div>
               </div>
-
-              <Button variant="trc" onClick={() => createRoom()}>
-                CREATE SECURE ROOM
-              </Button>
             </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center text-zinc-500">
+                Room Expiry
+              </label>
+              <Tabs
+                value={String(selectedTtl)}
+                onValueChange={(value) => setSelectedTtl(Number(value))}
+                className="w-full"
+              >
+                <TabsList className="w-full grid grid-cols-5">
+                  {TTL_OPTIONS.map((option) => (
+                    <TabsTrigger
+                      key={option.value}
+                      value={String(option.value)}
+                    >
+                      {option.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
+
+            <Button variant="trc" onClick={() => createRoom()}>
+              CREATE SECURE ROOM
+            </Button>
           </div>
         </div>
       </div>

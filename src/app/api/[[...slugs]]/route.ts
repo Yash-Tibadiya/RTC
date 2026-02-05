@@ -6,22 +6,37 @@ import { authMiddleware } from "./auth";
 import { Message, realtime } from "@/lib/realtime";
 
 const ROOM_TTL_SECONDS = 60 * 10;
+const ALLOWED_TTL_VALUES = [600, 1800, 3600, 43200, 86400] as const;
 
 const rooms = new Elysia({
   prefix: "/room",
 })
-  .post("/create", async () => {
-    const roomId = nanoid();
+  .post(
+    "/create",
+    async ({ query }) => {
+      const roomId = nanoid();
+      const ttl = query.ttl ? Number(query.ttl) : ROOM_TTL_SECONDS;
+      const validTtl = ALLOWED_TTL_VALUES.includes(
+        ttl as (typeof ALLOWED_TTL_VALUES)[number],
+      )
+        ? ttl
+        : ROOM_TTL_SECONDS;
 
-    await redis.hset(`meta:${roomId}`, {
-      connected: [],
-      createdAt: Date.now(),
-    });
+      await redis.hset(`meta:${roomId}`, {
+        connected: [],
+        createdAt: Date.now(),
+      });
 
-    await redis.expire(`meta:${roomId}`, ROOM_TTL_SECONDS);
+      await redis.expire(`meta:${roomId}`, validTtl);
 
-    return { roomId };
-  })
+      return { roomId };
+    },
+    {
+      query: z.object({
+        ttl: z.string().optional(),
+      }),
+    },
+  )
   .use(authMiddleware)
   .get(
     "/ttl",
