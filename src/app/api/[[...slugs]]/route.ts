@@ -1,8 +1,9 @@
+import z from "zod";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
 import { redis } from "@/lib/redis";
 import { authMiddleware } from "./auth";
-import z from "zod";
+import { Message, realtime } from "@/lib/realtime";
 
 const ROOM_TTL_SECONDS = 60 * 10;
 
@@ -31,6 +32,29 @@ const messages = new Elysia({ prefix: "/messages" }).use(authMiddleware).post(
     if (!roomExists) {
       throw new Error("Room not found");
     }
+
+    const message: Message = {
+      id: nanoid(),
+      sender,
+      text,
+      timestamp: Date.now(),
+      roomId,
+    };
+
+    // add message to history : push message in ordered list
+    await redis.rpush(`messages:${roomId}`, {
+      ...message,
+      token: auth.token,
+    });
+
+    await realtime.channel(roomId).emit("chat.message", message);
+
+    // last send message to user
+    const remaining = await redis.ttl(`meta:${roomId}`);
+
+    await redis.expire(`messages:${roomId}`, remaining);
+    await redis.expire(`history:${roomId}`, remaining);
+    await redis.expire(roomId, remaining);
   },
   {
     query: z.object({
