@@ -15,6 +15,7 @@
     "@upstash/redis": "^1.36.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
     "elysia": "^1.4.22",
     "lucide-react": "^0.563.0",
     "motion": "^12.32.0",
