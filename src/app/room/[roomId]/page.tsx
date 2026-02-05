@@ -2,12 +2,14 @@
 
 import { api } from "@/lib/eden";
 import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 import { useUsername } from "@/hooks/use-username";
 import { useRealtime } from "@/lib/realtime-client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import PlugConnectedXIcon from "@/components/ui/plug-connected-x-icon";
+import { Message } from "@/lib/realtime";
 
 function formatTimeRemaining(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -30,6 +32,8 @@ const RoomPage = () => {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const [copyStatus, setCopyStatus] = useState("COPY");
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -67,18 +71,77 @@ const RoomPage = () => {
     return () => clearInterval(interval);
   }, [timeRemaining, router]);
 
-  const { data: messages, refetch } = useQuery({
+  const {
+    data: messagesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
     queryKey: ["messages", roomId],
-    queryFn: async () => {
-      const res = await api.messages.get({ query: { roomId } });
+    queryFn: async ({ pageParam = 0 }) => {
+      const res = await api.messages.get({
+        query: { roomId, limit: "20", offset: String(pageParam) },
+      });
       return res.data;
     },
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage?.hasMore) return undefined;
+      // Calculate total messages fetched so far
+      const totalFetched = allPages.reduce(
+        (sum, page) => sum + (page?.messages?.length || 0),
+        0,
+      );
+      return totalFetched;
+    },
+    initialPageParam: 0,
   });
 
-  // Auto-scroll to bottom when messages change
+  // Flatten all messages from all pages
+  // Pages are [newest, older, oldest], so reverse to get [oldest, older, newest]
+  // Messages within each page are already in chronological order (oldest to newest)
+  const allMessages = messagesData?.pages
+    .slice()
+    .reverse()
+    .flatMap((page) => page?.messages || []) as Message[] | undefined;
+
+  // Auto-scroll to bottom on initial load only
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (isInitialLoad && allMessages && allMessages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      setIsInitialLoad(false);
+    }
+  }, [allMessages, isInitialLoad]);
+
+  // Scroll to bottom when new message arrives (not when loading older messages)
+  const prevMessageCount = useRef(0);
+  useEffect(() => {
+    if (allMessages && allMessages.length > prevMessageCount.current) {
+      // Only scroll if we received new messages at the end (not loading older ones)
+      if (!isFetchingNextPage) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+      prevMessageCount.current = allMessages.length;
+    }
+  }, [allMessages, isFetchingNextPage]);
+
+  // Handle scroll to load more messages
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // If scrolled near top (within 50px), load more
+    if (container.scrollTop < 50 && hasNextPage && !isFetchingNextPage) {
+      const prevScrollHeight = container.scrollHeight;
+      fetchNextPage().then(() => {
+        // Maintain scroll position after loading older messages
+        requestAnimationFrame(() => {
+          const newScrollHeight = container.scrollHeight;
+          container.scrollTop = newScrollHeight - prevScrollHeight;
+        });
+      });
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const { mutate: sendMessage, isPending: isSending } = useMutation({
     mutationFn: async ({ text }: { text: string }) => {
@@ -168,8 +231,28 @@ const RoomPage = () => {
       </header>
 
       {/* MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 thin-scrollbar">
-        {messages?.messages.length === 0 && (
+      <div
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 thin-scrollbar"
+      >
+        {/* Loader at top for loading older messages */}
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="w-5 h-5 text-zinc-500 animate-spin" />
+          </div>
+        )}
+
+        {/* Show "load more" hint if there are more messages */}
+        {hasNextPage && !isFetchingNextPage && (
+          <div className="flex justify-center py-2">
+            <span className="text-xs text-zinc-600">
+              Scroll up for older messages
+            </span>
+          </div>
+        )}
+
+        {allMessages?.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-zinc-600 text-sm font-mono">
               No messages yet, start the conversation.
@@ -177,17 +260,12 @@ const RoomPage = () => {
           </div>
         )}
 
-        {messages?.messages.map((msg) => (
-          <div
-            key={msg.id}
-            className="flex flex-col items-start thin-scrollbar"
-          >
+        {allMessages?.map((msg) => (
+          <div key={msg.id} className="flex flex-col items-start">
             <div className="max-w-[80%] group">
               <div className="flex items-baseline gap-3 mb-1">
                 <span
-                  className={`text-xs font-bold ${
-                    msg.sender === username ? "text-green-500" : "text-blue-500"
-                  }`}
+                  className={`text-xs font-bold ${msg.sender === username ? "text-green-500" : "text-blue-500"}`}
                 >
                   {msg.sender === username ? "YOU" : msg.sender}
                 </span>

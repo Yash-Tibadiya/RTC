@@ -121,11 +121,22 @@ const messages = new Elysia({ prefix: "/messages" })
   )
   .get(
     "/",
-    async ({ auth }) => {
+    async ({ auth, query }) => {
+      const limit = query.limit ? Number(query.limit) : 50;
+      const offset = query.offset ? Number(query.offset) : 0;
+
+      // Get total count first
+      const totalCount = await redis.llen(`messages:${auth.roomId}`);
+
+      // Calculate range for fetching from the end (newest messages)
+      // Messages are stored oldest first, so we need to get from the end
+      const start = Math.max(0, totalCount - offset - limit);
+      const end = Math.max(0, totalCount - offset - 1);
+
       const messages = await redis.lrange<Message>(
         `messages:${auth.roomId}`,
-        0,
-        -1,
+        start,
+        end,
       );
 
       return {
@@ -134,11 +145,15 @@ const messages = new Elysia({ prefix: "/messages" })
           ...m,
           token: m.token === auth.token ? auth.token : undefined,
         })),
+        hasMore: start > 0,
+        totalCount,
       };
     },
     {
       query: z.object({
         roomId: z.string(),
+        limit: z.string().optional(),
+        offset: z.string().optional(),
       }),
     },
   );
