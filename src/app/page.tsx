@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/lib/eden";
 
 const ANIMALS = ["wplf", "hawf", "bear", "shark"];
 const STORAGE_KEY = "chat_username";
@@ -30,6 +32,12 @@ export default function Home() {
     main();
   }, []);
 
+  const { mutate: createRoom } = useMutation({
+    mutationFn: async () => {
+      const res = await api.room.create.post();
+    },
+  });
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
@@ -55,7 +63,9 @@ export default function Home() {
                 </div>
               </div>
 
-              <Button variant="trc">CREATE SECURE ROOM</Button>
+              <Button variant="trc" onClick={() => createRoom()}>
+                CREATE SECURE ROOM
+              </Button>
             </div>
           </div>
         </div>
