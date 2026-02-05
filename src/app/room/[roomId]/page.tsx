@@ -49,7 +49,7 @@ const RoomPage = () => {
     if (timeRemaining === null || timeRemaining < 0) return;
 
     if (timeRemaining === 0) {
-      router.push("/?destroyed=true");
+      router.push("/anonymous?destroyed=true");
       return;
     }
 
@@ -94,7 +94,7 @@ const RoomPage = () => {
       }
 
       if (event.event === "chat.destroy") {
-        router.push("/?destroyed=true");
+        router.push("/anonymous?destroyed=true");
       }
     },
   });

@@ -11,7 +11,7 @@ export const proxy = async (req: NextRequest) => {
 
   // CHECK IF ROOM EXISTS : localhost:3000/room/LaYXdqq87T7Yd1hQd5pnV
   const roomMatch = pathname.match(/^\/room\/([^/]+)$/);
-  if (!roomMatch) return NextResponse.redirect(new URL("/", req.url));
+  if (!roomMatch) return NextResponse.redirect(new URL("/anonymous", req.url));
 
   const roomId = roomMatch[1];
 
@@ -21,7 +21,9 @@ export const proxy = async (req: NextRequest) => {
   );
 
   if (!meta) {
-    return NextResponse.redirect(new URL("/?error=room-not-found", req.url));
+    return NextResponse.redirect(
+      new URL("/anonymous?error=room-not-found", req.url),
+    );
   }
 
   // CHECK IF USER IS ALREADY JOINED
@@ -34,7 +36,9 @@ export const proxy = async (req: NextRequest) => {
 
   // USER IS NOT ALLOWED TO JOIN (2 USERS ALREADY JOINED)
   if (meta.connected.length >= 2) {
-    return NextResponse.redirect(new URL("/?error=room-full", req.url));
+    return NextResponse.redirect(
+      new URL("/anonymous/?error=room-full", req.url),
+    );
   }
 
   const response = NextResponse.next();
