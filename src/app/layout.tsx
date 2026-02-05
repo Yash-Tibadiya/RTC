@@ -9,7 +9,7 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RTC | Real Time Chat",
+  title: "RTC - Real Time Chat",
   description: "Real Time Chat App",
 };
 
