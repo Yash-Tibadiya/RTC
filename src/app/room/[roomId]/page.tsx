@@ -2,9 +2,9 @@
 
 import { api } from "@/lib/eden";
 import { format } from "date-fns";
-import { useState, useRef } from "react";
 import { useUsername } from "@/hooks/use-username";
 import { useRealtime } from "@/lib/realtime-client";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PlugConnectedXIcon from "@/components/ui/plug-connected-x-icon";
@@ -28,6 +28,39 @@ const RoomPage = () => {
   const [copyStatus, setCopyStatus] = useState("COPY");
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
+  const { data: ttlData } = useQuery({
+    queryKey: ["ttl", roomId],
+    queryFn: async () => {
+      const res = await api.room.ttl.get({ query: { roomId } });
+      return res.data;
+    },
+  });
+
+  useEffect(() => {
+    if (ttlData?.ttl !== undefined) setTimeRemaining(ttlData.ttl);
+  }, [ttlData]);
+
+  useEffect(() => {
+    if (timeRemaining === null || timeRemaining < 0) return;
+
+    if (timeRemaining === 0) {
+      router.push("/?destroyed=true");
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeRemaining, router]);
+
   const { data: messages, refetch } = useQuery({
     queryKey: ["messages", roomId],
     queryFn: async () => {
@@ -36,12 +69,14 @@ const RoomPage = () => {
     },
   });
 
-  const { mutate: sendMessage, isPending } = useMutation({
+  const { mutate: sendMessage, isPending: isSending } = useMutation({
     mutationFn: async ({ text }: { text: string }) => {
       await api.messages.post(
         { sender: username, text },
         { query: { roomId } },
       );
+
+      setInput("");
     },
   });
 
@@ -56,6 +91,12 @@ const RoomPage = () => {
       if (event.event === "chat.destroy") {
         router.push("/?destroyed=true");
       }
+    },
+  });
+
+  const { mutate: destroyRoom, isPending: isDestroying } = useMutation({
+    mutationFn: async () => {
+      await api.room.delete(null, { query: { roomId } });
     },
   });
 
@@ -106,8 +147,9 @@ const RoomPage = () => {
         </div>
 
         <button
-          // onClick={() => destroyRoom()}
-          className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-50"
+          onClick={() => destroyRoom()}
+          disabled={isDestroying}
+          className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
         >
           <PlugConnectedXIcon />
           DESTROY NOW
@@ -177,7 +219,7 @@ const RoomPage = () => {
               sendMessage({ text: input });
               inputRef.current?.focus();
             }}
-            disabled={!input.trim() || isPending}
+            disabled={!input.trim() || isSending}
             className="bg-zinc-800 text-zinc-400 px-6 text-sm font-bold hover:text-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             SEND
