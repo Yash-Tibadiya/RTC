@@ -162,7 +162,7 @@ const RoomPage = () => {
       </header>
 
       {/* MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 thin-scrollbar">
         {messages?.messages.length === 0 && (
           <div className="flex items-center justify-center h-full">
             <p className="text-zinc-600 text-sm font-mono">
@@ -172,7 +172,10 @@ const RoomPage = () => {
         )}
 
         {messages?.messages.map((msg) => (
-          <div key={msg.id} className="flex flex-col items-start">
+          <div
+            key={msg.id}
+            className="flex flex-col items-start thin-scrollbar"
+          >
             <div className="max-w-[80%] group">
               <div className="flex items-baseline gap-3 mb-1">
                 <span
