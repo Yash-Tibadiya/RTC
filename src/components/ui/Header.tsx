@@ -43,9 +43,11 @@ export function Header() {
 
           <div className="flex-1" />
 
-          <div className="flex items-center *:first:mr-2">
+          <div className="flex items-center gap-1.5">
             <span className="mx-2 flex h-5 w-px bg-border" />
-            hello
+            <span className="text-green-500">Hello</span>
+            <span className="hidden sm:block">Anonymous</span>
+            <span className="hidden sm:block">User</span>
           </div>
         </div>
       </div>
