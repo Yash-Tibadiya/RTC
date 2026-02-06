@@ -177,7 +177,12 @@ const messages = new Elysia({ prefix: "/messages" })
     },
   );
 
-export const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages);
+import { analytics } from "./analytics";
+
+export const app = new Elysia({ prefix: "/api" })
+  .use(rooms)
+  .use(messages)
+  .use(analytics);
 
 export const GET = app.fetch;
 export const POST = app.fetch;

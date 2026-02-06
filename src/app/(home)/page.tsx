@@ -1,6 +1,10 @@
-"use client";
-
 import Link from "next/link";
+import { count } from "drizzle-orm";
+import { db } from "@/drizzle/db";
+import {
+  rooms as roomsTable,
+  messages as messagesTable,
+} from "@/drizzle/schema";
 import {
   Card,
   CardHeader,
@@ -14,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import {
   FlameKindling,
   Lock,
+  MessageSquare,
   MessageSquareLock,
   Plus,
   Share2,
@@ -21,13 +26,32 @@ import {
   User,
   Users,
   Zap,
+  DoorOpen,
 } from "lucide-react";
 
-const HomePage = () => {
+interface AnalyticsData {
+  totalRooms: number;
+  totalMessages: number;
+}
+
+async function getAnalytics(): Promise<AnalyticsData> {
+  const [roomsResult, messagesResult] = await Promise.all([
+    db.select({ count: count() }).from(roomsTable),
+    db.select({ count: count() }).from(messagesTable),
+  ]);
+
+  return {
+    totalRooms: roomsResult[0]?.count ?? 0,
+    totalMessages: messagesResult[0]?.count ?? 0,
+  };
+}
+
+const HomePage = async () => {
+  const analytics = await getAnalytics();
   return (
     <main className="flex flex-col min-h-[calc(100svh-11rem)] h-full w-full p-4 md:p-8">
       {/* Hero Section */}
-      <section className="flex flex-col items-center justify-center text-center py-12 md:py-20 space-y-6">
+      <section className="flex flex-col items-center justify-center text-center py-12 md:py-16 space-y-6">
         <div className="space-y-4">
           <Badge variant="amber" className="mb-2">
             Real-Time Communication
@@ -75,6 +99,59 @@ const HomePage = () => {
               COMING SOON...
             </Badge>
           </div>
+        </div>
+      </section>
+
+      {/* Analytics Section */}
+      <section className="py-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          {/* Private Rooms Card */}
+          <Card className="border-zinc-800 hover:border-amber-500/50 transition-colors">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <DoorOpen className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <CardDescription className="text-xs uppercase tracking-wider text-zinc-500">
+                    Private Rooms
+                  </CardDescription>
+                  <CardTitle className="text-2xl md:text-3xl font-bold text-zinc-100 mt-0.5">
+                    {analytics.totalRooms.toLocaleString()}
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-xs text-zinc-500">
+                Secure rooms created to date
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Messages Card */}
+          <Card className="border-zinc-800 hover:border-green-500/50 transition-colors">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <CardDescription className="text-xs uppercase tracking-wider text-zinc-500">
+                    Messages Exchanged
+                  </CardDescription>
+                  <CardTitle className="text-2xl md:text-3xl font-bold text-zinc-100 mt-0.5">
+                    {analytics.totalMessages.toLocaleString()}
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-xs text-zinc-500">
+                Total messages sent & received
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
