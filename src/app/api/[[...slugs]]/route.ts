@@ -1,6 +1,3 @@
-// 1. Enable Edge Runtime
-export const runtime = "edge";
-
 import z from "zod";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
