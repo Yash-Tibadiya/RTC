@@ -1,7 +1,22 @@
 import { nanoid } from "nanoid";
 import { useEffect, useState } from "react";
 
-const ANIMALS = ["wplf", "hawf", "bear", "shark"];
+const ANIMALS = [
+  "bear",
+  "shark",
+  "cat",
+  "dog",
+  "bird",
+  "fish",
+  "lion",
+  "tiger",
+  "elephant",
+  "monkey",
+  "rabbit",
+  "fox",
+  "wolf",
+  "deer",
+];
 const STORAGE_KEY = "chat_username";
 
 const generateUsername = () => {

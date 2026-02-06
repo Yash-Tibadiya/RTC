@@ -1,25 +1,13 @@
 import { Footer } from "@/components/ui/Footer";
 import { Header } from "@/components/ui/Header";
+import { LayoutWrapper } from "@/components/LayoutWrapper";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh max-w-screen flex-col overflow-x-hidden">
       <Header />
       <main className="flex-1 overflow-y-auto px-2 overflow-x-hidden">
-        <div className="relative mx-auto min-h-[calc(100svh-11rem)] md:max-w-5xl border-x border-edge max-w-screen ">
-          {/* Left vertical design strip */}
-          <div
-            className="border-l border-edge pointer-events-none absolute inset-y-0 left-0 -translate-x-full w-8 bg-[repeating-linear-gradient(45deg,var(--pattern-foreground)_0,var(--pattern-foreground)_1px,transparent_0,transparent_50%)] bg-size-[10px_10px] [--pattern-foreground:var(--color-edge)]/56"
-            aria-hidden="true"
-          />
-
-          {/* Right vertical design strip */}
-          <div
-            className="border-r border-edge pointer-events-none absolute inset-y-0 right-0 translate-x-full w-8 bg-[repeating-linear-gradient(45deg,var(--pattern-foreground)_0,var(--pattern-foreground)_1px,transparent_0,transparent_50%)] bg-size-[10px_10px] [--pattern-foreground:var(--color-edge)]/56"
-            aria-hidden="true"
-          />
-          {children}
-        </div>
+        <LayoutWrapper>{children}</LayoutWrapper>
       </main>
       <Footer />
     </div>
