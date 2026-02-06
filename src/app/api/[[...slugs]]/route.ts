@@ -1,3 +1,6 @@
+// 1. Enable Edge Runtime
+export const runtime = "edge";
+
 import z from "zod";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
@@ -144,19 +147,17 @@ const messages = new Elysia({ prefix: "/messages" })
       const limit = query.limit ? Number(query.limit) : 50;
       const offset = query.offset ? Number(query.offset) : 0;
 
-      // Get total count first
-      const totalCount = await redis.llen(`messages:${auth.roomId}`);
+      // Get total count and messages in parallel
+      const [totalCount, messages] = await Promise.all([
+        redis.llen(`messages:${auth.roomId}`),
+        redis.lrange<Message>(
+          `messages:${auth.roomId}`,
+          -(offset + limit),
+          -(offset + 1),
+        ),
+      ]);
 
-      // Calculate range for fetching from the end (newest messages)
-      // Messages are stored oldest first, so we need to get from the end
       const start = Math.max(0, totalCount - offset - limit);
-      const end = Math.max(0, totalCount - offset - 1);
-
-      const messages = await redis.lrange<Message>(
-        `messages:${auth.roomId}`,
-        start,
-        end,
-      );
 
       return {
         // remove token for other users messages
