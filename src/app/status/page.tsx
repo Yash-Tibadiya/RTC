@@ -4,14 +4,57 @@ import { useRef, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+// Configuration for different status types based on code and heading
+const STATUS_CONFIG: Record<
+  string,
+  Record<
+    string,
+    { subheading: string; redirectLabel: string; redirectUrl: string }
+  >
+> = {
+  "404": {
+    "Invalid URL": {
+      subheading: "The room URL you are trying to access is invalid.",
+      redirectLabel: "Go Home",
+      redirectUrl: "/",
+    },
+    "Room Not Found": {
+      subheading: "This room may have expired or never existed.",
+      redirectLabel: "Create New Room",
+      redirectUrl: "/anonymous",
+    },
+  },
+  FULL: {
+    "Room Full": {
+      subheading: "This room is at maximum capacity.",
+      redirectLabel: "Create New Room",
+      redirectUrl: "/anonymous",
+    },
+  },
+  GONE: {
+    "Room Destroyed": {
+      subheading: "All messages were permanently deleted.",
+      redirectLabel: "Create New Room",
+      redirectUrl: "/anonymous",
+    },
+  },
+};
+
+const DEFAULT_CONFIG = {
+  subheading: "An unexpected error occurred.",
+  redirectLabel: "Go Home",
+  redirectUrl: "/",
+};
+
 function StatusPageContent() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code") || "!";
   const heading = searchParams.get("heading") || "Something went wrong";
-  const subheading =
-    searchParams.get("subheading") || "An unexpected error occurred.";
-  const redirectLabel = searchParams.get("redirectLabel") || "Go Home";
-  const redirectUrl = searchParams.get("redirectUrl") || "/";
+
+  // Derive message details from code and heading
+  const config = STATUS_CONFIG[code]?.[heading] || DEFAULT_CONFIG;
+
+  const { subheading, redirectLabel, redirectUrl } = config;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePositionRef = useRef({ x: 0, y: 0 });
@@ -249,9 +292,9 @@ function StatusPageContent() {
         <p className="group/text text-lg font-medium text-muted-foreground md:text-2xl mb-6 px-5 md:px-0 cursor-pointer">
           <span className="group-hover/text:text-[#ef4444] transition-colors duration-300">
             {heading}
-          </span>{" "}
+          </span>
           <br />
-          <span className="group-hover/text:text-[#ef4444] transition-colors duration-300 text-base opacity-80">
+          <span className="transition-colors duration-300 text-base opacity-80">
             {subheading}
           </span>
         </p>

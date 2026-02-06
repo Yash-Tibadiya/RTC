@@ -13,10 +13,7 @@ export const proxy = async (req: NextRequest) => {
   const roomMatch = pathname.match(/^\/room\/([^/]+)$/);
   if (!roomMatch)
     return NextResponse.redirect(
-      new URL(
-        "/status?code=404&heading=Invalid URL&subheading=The room URL you are trying to access is invalid.&redirectLabel=Go Home&redirectUrl=/",
-        req.url,
-      ),
+      new URL("/status?code=404&heading=Invalid URL", req.url),
     );
 
   const roomId = roomMatch[1];
@@ -28,10 +25,7 @@ export const proxy = async (req: NextRequest) => {
 
   if (!meta) {
     return NextResponse.redirect(
-      new URL(
-        "/status?code=404&heading=Room Not Found&subheading=This room may have expired or never existed.&redirectLabel=Create New Room&redirectUrl=/anonymous",
-        req.url,
-      ),
+      new URL("/status?code=404&heading=Room Not Found", req.url),
     );
   }
 
@@ -46,10 +40,7 @@ export const proxy = async (req: NextRequest) => {
   // USER IS NOT ALLOWED TO JOIN (2 USERS ALREADY JOINED)
   if (meta.connected.length >= 2) {
     return NextResponse.redirect(
-      new URL(
-        "/status?code=FULL&heading=Room Full&subheading=This room is at maximum capacity.&redirectLabel=Create New Room&redirectUrl=/anonymous",
-        req.url,
-      ),
+      new URL("/status?code=FULL&heading=Room Full", req.url),
     );
   }
 

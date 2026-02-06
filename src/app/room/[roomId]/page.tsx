@@ -57,9 +57,7 @@ const RoomPage = () => {
     if (timeRemaining === null || timeRemaining < 0) return;
 
     if (timeRemaining === 0) {
-      router.push(
-        "/status?code=GONE&heading=Room Destroyed&subheading=All messages were permanently deleted.&redirectLabel=Create New Room&redirectUrl=/anonymous",
-      );
+      router.push("/status?code=GONE&heading=Room Destroyed");
       return;
     }
 
@@ -168,9 +166,7 @@ const RoomPage = () => {
       }
 
       if (event.event === "chat.destroy") {
-        router.push(
-          "/status?code=GONE&heading=Room Destroyed&subheading=All messages were permanently deleted.&redirectLabel=Create New Room&redirectUrl=/anonymous",
-        );
+        router.push("/status?code=GONE&heading=Room Destroyed");
       }
     },
   });
