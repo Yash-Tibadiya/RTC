@@ -4,6 +4,11 @@ import { nanoid } from "nanoid";
 import { redis } from "@/lib/redis";
 import { authMiddleware } from "./auth";
 import { Message, realtime } from "@/lib/realtime";
+import { db } from "@/drizzle/db";
+import {
+  rooms as roomsTable,
+  messages as messagesTable,
+} from "@/drizzle/schema";
 
 const ROOM_TTL_SECONDS = 60 * 10;
 const ALLOWED_TTL_VALUES = [600, 1800, 3600, 43200, 86400] as const;
@@ -28,6 +33,12 @@ const rooms = new Elysia({
       });
 
       await redis.expire(`meta:${roomId}`, validTtl);
+
+      // Analytics: Store room in PostgreSQL
+      await db.insert(roomsTable).values({
+        roomId,
+        ttlSeconds: validTtl,
+      });
 
       return { roomId };
     },
@@ -96,6 +107,14 @@ const messages = new Elysia({ prefix: "/messages" })
       await redis.rpush(`messages:${roomId}`, {
         ...message,
         token: auth.token,
+      });
+
+      // Analytics: Store message metadata in PostgreSQL
+      await db.insert(messagesTable).values({
+        messageId: message.id,
+        sender: message.sender,
+        timestamp: message.timestamp,
+        roomId: message.roomId,
       });
 
       await realtime.channel(roomId).emit("chat.message", message);

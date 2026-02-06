@@ -2,7 +2,7 @@ import { Footer } from "@/components/ui/Footer";
 import { Header } from "@/components/ui/Header";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 
-export default function AnonymousLobbyLayout({
+export default function HomeLayout({
   children,
 }: {
   children: React.ReactNode;

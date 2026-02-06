@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { useUsername } from "@/hooks/use-username";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TTL_OPTIONS = [
@@ -30,10 +30,6 @@ function Lobby() {
   const { username } = useUsername();
   const [selectedTtl, setSelectedTtl] = useState<number>(600);
 
-  const searchParams = useSearchParams();
-  const wasDestroyed = searchParams.get("destroyed") === "true";
-  const error = searchParams.get("error");
-
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
       const res = await api.room.create.post(
@@ -50,30 +46,6 @@ function Lobby() {
   return (
     <main className="flex flex-col lg:flex-row min-h-[calc(100svh-11rem)] h-full w-full justify-center items-center p-4">
       <div className="w-full max-w-md space-y-8">
-        {wasDestroyed && (
-          <div className="bg-red-950/50 border border-red-900 p-4 text-center">
-            <p className="text-red-500 text-sm font-bold">ROOM DESTROYED</p>
-            <p className="text-zinc-500 text-xs mt-1">
-              All messages were permanently deleted.
-            </p>
-          </div>
-        )}
-        {error === "room-not-found" && (
-          <div className="bg-red-950/50 border border-red-900 p-4 text-center">
-            <p className="text-red-500 text-sm font-bold">ROOM NOT FOUND</p>
-            <p className="text-zinc-500 text-xs mt-1">
-              This room may have expired or never existed.
-            </p>
-          </div>
-        )}
-        {error === "room-full" && (
-          <div className="bg-red-950/50 border border-red-900 p-4 text-center">
-            <p className="text-red-500 text-sm font-bold">ROOM FULL</p>
-            <p className="text-zinc-500 text-xs mt-1">
-              This room is at maximum capacity.
-            </p>
-          </div>
-        )}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-green-500">
             {">"}private_chat
