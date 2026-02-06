@@ -111,6 +111,7 @@ function Lobby() {
                     <TabsTrigger
                       key={option.value}
                       value={String(option.value)}
+                      className="text-xs sm:text-sm"
                     >
                       {option.label}
                     </TabsTrigger>
