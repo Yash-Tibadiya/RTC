@@ -57,10 +57,6 @@ body {
   @apply relative after:absolute after:bottom-0 after:-left-[100vw] after:-z-1 after:h-px after:w-[200vw] after:bg-edge;
 }
 
-@utility thin-scrollbar {
-  @apply [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-track]:bg-transparent;
-}
-
 :root {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -102,5 +98,18 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Custom scrollbar styling. Thanks @shadcn-ui */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
   }
 }

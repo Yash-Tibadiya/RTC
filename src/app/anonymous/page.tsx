@@ -50,7 +50,7 @@ function Lobby() {
 
   return (
     <main className="flex flex-col lg:flex-row min-h-[calc(100svh-11rem)] h-full w-full justify-center items-center p-4">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-5">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-green-500">
             {">"}private_chat
@@ -60,7 +60,7 @@ function Lobby() {
           </p>
         </div>
 
-        <div className="border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur-md">
+        <div className="border border-zinc-800 bg-zinc-900/50 p-4 backdrop-blur-md">
           <div className="flex flex-col gap-2">
             <div className="space-y-2">
               <label className="flex items-center text-zinc-500">
