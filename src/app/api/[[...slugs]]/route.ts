@@ -110,6 +110,43 @@ const rooms = new Elysia({
         roomId: z.string(),
       }),
     },
+  )
+  .patch(
+    "/update",
+    async ({ auth, body, set }) => {
+      try {
+        const { roomName, description } = body;
+        console.log("Update request:", {
+          roomId: auth.roomId,
+          roomName,
+          description,
+        });
+
+        const updates: Record<string, string> = {
+          ...(roomName !== undefined && { roomName }),
+          ...(description !== undefined && { description }),
+        };
+
+        if (Object.keys(updates).length > 0) {
+          await redis.hset(`meta:${auth.roomId}`, updates);
+        }
+
+        return { roomName, description };
+      } catch (error) {
+        console.error("Update error:", error);
+        set.status = 500;
+        return { error: String(error) };
+      }
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+      body: z.object({
+        roomName: z.string().max(100).optional(),
+        description: z.string().max(500).optional(),
+      }),
+    },
   );
 
 const messages = new Elysia({ prefix: "/messages" })
@@ -218,4 +255,5 @@ export type App = typeof app;
 
 export const GET = app.fetch;
 export const POST = app.fetch;
+export const PATCH = app.fetch;
 export const DELETE = app.fetch;
