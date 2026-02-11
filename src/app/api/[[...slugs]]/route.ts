@@ -1,6 +1,7 @@
 import z from "zod";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { authMiddleware } from "./auth";
 import { Message, realtime } from "@/lib/realtime";
@@ -115,11 +116,12 @@ const rooms = new Elysia({
     "/update",
     async ({ auth, body, set }) => {
       try {
-        const { roomName, description } = body;
+        const { roomName, description, ttl } = body;
         console.log("Update request:", {
           roomId: auth.roomId,
           roomName,
           description,
+          ttl,
         });
 
         const updates: Record<string, string> = {
@@ -131,7 +133,26 @@ const rooms = new Elysia({
           await redis.hset(`meta:${auth.roomId}`, updates);
         }
 
-        return { roomName, description };
+        if (ttl !== undefined) {
+          // Validate TTL: Must be positive and not exceed 24 hours (86400s)
+          if (ttl > 0 && ttl <= 86400) {
+            await Promise.all([
+              redis.expire(`meta:${auth.roomId}`, ttl),
+              redis.expire(`messages:${auth.roomId}`, ttl),
+              redis.expire(`history:${auth.roomId}`, ttl),
+            ]);
+
+            // Update analytics DB
+            await db
+              .update(roomsTable)
+              .set({ ttlSeconds: ttl })
+              .where(eq(roomsTable.roomId, auth.roomId));
+
+            console.log(`Updated TTL for room ${auth.roomId} to ${ttl}`);
+          }
+        }
+
+        return { roomName, description, ttl };
       } catch (error) {
         console.error("Update error:", error);
         set.status = 500;
@@ -145,6 +166,7 @@ const rooms = new Elysia({
       body: z.object({
         roomName: z.string().max(100).optional(),
         description: z.string().max(500).optional(),
+        ttl: z.number().optional(),
       }),
     },
   );

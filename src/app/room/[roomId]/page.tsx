@@ -56,6 +56,9 @@ const RoomPage = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editRoomName, setEditRoomName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [ttlHours, setTtlHours] = useState("");
+  const [ttlMinutes, setTtlMinutes] = useState("");
+  const [ttlError, setTtlError] = useState("");
 
   const queryClient = useQueryClient();
 
@@ -205,17 +208,37 @@ const RoomPage = () => {
 
   const { mutate: updateRoom, isPending: isUpdating } = useMutation({
     mutationFn: async () => {
+      let ttl: number | undefined = undefined;
+
+      if (ttlHours !== "" || ttlMinutes !== "") {
+        const h = parseInt(ttlHours || "0", 10);
+        const m = parseInt(ttlMinutes || "0", 10);
+        const total = h * 3600 + m * 60;
+
+        if (total === 0) {
+          throw new Error("TTL_ZERO");
+        }
+        ttl = total;
+      }
+
       await api.room.update.patch(
         {
           roomName: editRoomName,
           description: editDescription,
+          ttl,
         },
         { query: { roomId } },
       );
     },
+    onError: (error) => {
+      if (error.message === "TTL_ZERO") {
+        setTtlError("Timer cannot be 00:00");
+      }
+    },
     onSuccess: () => {
       setIsEditDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["roomInfo", roomId] });
+      queryClient.invalidateQueries({ queryKey: ["ttl", roomId] });
     },
   });
 
@@ -223,8 +246,21 @@ const RoomPage = () => {
     if (isEditDialogOpen && roomInfo) {
       setEditRoomName(String(roomInfo.roomName || ""));
       setEditDescription(String(roomInfo.description || ""));
+      setTtlHours("");
+      setTtlMinutes("");
+      setTtlError("");
     }
   }, [isEditDialogOpen, roomInfo]);
+
+  useEffect(() => {
+    setTtlError("");
+    const h = parseInt(ttlHours || "0", 10);
+    const m = parseInt(ttlMinutes || "0", 10);
+
+    if (h === 24 && m > 0) {
+      setTtlError("Max duration is 24:00");
+    }
+  }, [ttlHours, ttlMinutes]);
 
   const copyLink = () => {
     const url = window.location.href;
@@ -480,6 +516,69 @@ const RoomPage = () => {
                 maxLength={500}
               />
             </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-zinc-400">
+                Reset Timer (HH:MM)
+              </label>
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00"
+                    value={ttlHours}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (!/^\d*$/.test(val)) return;
+                      val = val.replace(/^0+(?=\d)/, "");
+                      if (val === "" || parseInt(val) <= 24) {
+                        setTtlHours(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (ttlHours.length === 1) setTtlHours("0" + ttlHours);
+                    }}
+                    className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                    Hours (0-24)
+                  </span>
+                </div>
+                <span className="text-zinc-500 py-2 font-bold">:</span>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00"
+                    value={ttlMinutes}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (!/^\d*$/.test(val)) return;
+                      val = val.replace(/^0+(?=\d)/, "");
+                      if (val === "" || parseInt(val) <= 59) {
+                        setTtlMinutes(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (ttlMinutes.length === 1)
+                        setTtlMinutes("0" + ttlMinutes);
+                    }}
+                    className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                    Mins (0-59)
+                  </span>
+                </div>
+              </div>
+              {ttlError && (
+                <p className="text-red-500 text-xs font-bold bg-red-500/10 p-2 border border-red-500/20">
+                  {ttlError}
+                </p>
+              )}
+              <p className="text-[10px] text-zinc-500">
+                Set to 00:00 to keep current timer.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <button
@@ -490,7 +589,7 @@ const RoomPage = () => {
             </button>
             <button
               onClick={() => updateRoom()}
-              disabled={isUpdating}
+              disabled={isUpdating || !!ttlError}
               className="px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               {isUpdating ? "Saving..." : "Save Changes"}
