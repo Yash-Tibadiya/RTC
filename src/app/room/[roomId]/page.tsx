@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { useUsername } from "@/hooks/use-username";
 import { useRealtime } from "@/lib/realtime-client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import PlugConnectedXIcon from "@/components/ui/plug-connected-x-icon";
@@ -40,6 +40,7 @@ const RoomPage = () => {
 
   const [copyStatus, setCopyStatus] = useState("COPY");
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   const { data: ttlData } = useQuery({
     queryKey: ["ttl", roomId],
@@ -198,69 +199,105 @@ const RoomPage = () => {
       <main className="flex-1 overflow-y-auto px-2 overflow-x-hidden">
         <LayoutWrapper>
           <main className="flex flex-col min-h-[calc(100svh-6rem)] sm:min-h-[calc(100svh-11rem)] max-h-[calc(100svh-11rem)] overflow-hidden">
-            <header className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/30">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                  <span className="text-xs text-zinc-500 uppercase">
-                    {roomInfo?.roomName ? "Room" : "Room ID"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-green-500 truncate">
-                      {roomInfo?.roomName ? (
-                        <span>{roomInfo.roomName}</span>
-                      ) : (
-                        <>
-                          <span className="md:hidden">
-                            {roomId.slice(0, 4)}...
-                          </span>
-                          <span className="hidden md:inline">
-                            {roomId.slice(0, 10)}...
-                          </span>
-                        </>
-                      )}
+            <header className="border-b border-zinc-800 flex flex-col justify-center items-start bg-zinc-900/30">
+              <div className="flex flex-row justify-between items-center w-full border-b border-edge p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-zinc-500 uppercase">
+                      {roomInfo?.roomName ? "Room" : "Room ID"}
                     </span>
-                    <button
-                      onClick={copyLink}
-                      className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 text-zinc-400 hover:text-zinc-200 transition-colors"
-                    >
-                      {copyStatus}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-500 truncate">
+                        {roomInfo?.roomName ? (
+                          <>
+                            <span className="md:hidden">
+                              {roomInfo.roomName.slice(0, 4)}...
+                            </span>
+                            <span className="hidden md:inline">
+                              {roomInfo.roomName.slice(0, 10)}...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="md:hidden">
+                              {roomId.slice(0, 4)}...
+                            </span>
+                            <span className="hidden md:inline">
+                              {roomId.slice(0, 10)}...
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      <button
+                        onClick={copyLink}
+                        className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      >
+                        {copyStatus}
+                      </button>
+                    </div>
                   </div>
-                  {roomInfo?.description && (
-                    <span className="text-xs text-zinc-500 mt-0.5 truncate max-w-[200px] sm:max-w-xs">
-                      {roomInfo.description}
+
+                  <div className="h-8 w-px bg-zinc-800" />
+
+                  <div className="flex flex-col">
+                    <span className="text-xs text-zinc-500 uppercase">
+                      Self-Destruct
                     </span>
-                  )}
+                    <span
+                      className={`text-sm font-bold flex items-center gap-2 ${
+                        timeRemaining !== null && timeRemaining < 60
+                          ? "text-red-500"
+                          : "text-amber-500"
+                      }`}
+                    >
+                      {timeRemaining !== null
+                        ? formatTimeRemaining(timeRemaining)
+                        : "--:--"}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="h-8 w-px bg-zinc-800" />
-
-                <div className="flex flex-col">
-                  <span className="text-xs text-zinc-500 uppercase">
-                    Self-Destruct
-                  </span>
-                  <span
-                    className={`text-sm font-bold flex items-center gap-2 ${
-                      timeRemaining !== null && timeRemaining < 60
-                        ? "text-red-500"
-                        : "text-amber-500"
-                    }`}
-                  >
-                    {timeRemaining !== null
-                      ? formatTimeRemaining(timeRemaining)
-                      : "--:--"}
-                  </span>
-                </div>
+                <button
+                  onClick={() => destroyRoom()}
+                  disabled={isDestroying}
+                  className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <PlugConnectedXIcon />
+                  <span className="hidden sm:block">DESTROY NOW</span>
+                </button>
               </div>
 
-              <button
-                onClick={() => destroyRoom()}
-                disabled={isDestroying}
-                className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <PlugConnectedXIcon />
-                <span className="hidden sm:block">DESTROY NOW</span>
-              </button>
+              {roomInfo?.description && (
+                <div className="max-w-[94svw] sm:max-w-[60svw] p-2">
+                  {!isDescExpanded ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-zinc-500 truncate min-w-0">
+                        {roomInfo.description}
+                      </span>
+                      {roomInfo.description.length > 20 && (
+                        <button
+                          onClick={() => setIsDescExpanded(true)}
+                          className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium shrink-0"
+                        >
+                          more
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <p className="text-xs text-zinc-400 bg-zinc-800/60 border border-zinc-700/50 px-2.5 py-1.5 leading-relaxed whitespace-pre-wrap wrap-break-word">
+                        {roomInfo.description}
+                      </p>
+                      <button
+                        onClick={() => setIsDescExpanded(false)}
+                        className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium mt-1"
+                      >
+                        less
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </header>
 
             {/* MESSAGES */}
