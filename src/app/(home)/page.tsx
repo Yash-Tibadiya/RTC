@@ -1,12 +1,7 @@
 export const revalidate = 600;
 
 import Link from "next/link";
-import { count } from "drizzle-orm";
-import { db } from "@/drizzle/db";
-import {
-  rooms as roomsTable,
-  messages as messagesTable,
-} from "@/drizzle/schema";
+import { getAnalytics } from "./actions";
 import {
   Card,
   CardHeader,
@@ -30,23 +25,6 @@ import {
   Zap,
   DoorOpen,
 } from "lucide-react";
-
-interface AnalyticsData {
-  totalRooms: number;
-  totalMessages: number;
-}
-
-async function getAnalytics(): Promise<AnalyticsData> {
-  const [roomsResult, messagesResult] = await Promise.all([
-    db.select({ count: count() }).from(roomsTable),
-    db.select({ count: count() }).from(messagesTable),
-  ]);
-
-  return {
-    totalRooms: roomsResult[0]?.count ?? 0,
-    totalMessages: messagesResult[0]?.count ?? 0,
-  };
-}
 
 const HomePage = async () => {
   const analytics = await getAnalytics();

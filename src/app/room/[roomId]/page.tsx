@@ -2,17 +2,29 @@
 
 import { api } from "@/lib/eden";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { useUsername } from "@/hooks/use-username";
 import { useRealtime } from "@/lib/realtime-client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import PlugConnectedXIcon from "@/components/ui/plug-connected-x-icon";
 import { Message } from "@/lib/realtime";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { Header } from "@/components/ui/Header";
 import { Footer } from "@/components/ui/Footer";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function formatTimeRemaining(seconds: number) {
   const hours = Math.floor(seconds / 3600);
@@ -40,11 +52,28 @@ const RoomPage = () => {
 
   const [copyStatus, setCopyStatus] = useState("COPY");
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editRoomName, setEditRoomName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [ttlHours, setTtlHours] = useState("");
+  const [ttlMinutes, setTtlMinutes] = useState("");
+  const [ttlError, setTtlError] = useState("");
+
+  const queryClient = useQueryClient();
 
   const { data: ttlData } = useQuery({
     queryKey: ["ttl", roomId],
     queryFn: async () => {
       const res = await api.room.ttl.get({ query: { roomId } });
+      return res.data;
+    },
+  });
+
+  const { data: roomInfo } = useQuery({
+    queryKey: ["roomInfo", roomId],
+    queryFn: async () => {
+      const res = await api.room.info.get({ query: { roomId } });
       return res.data;
     },
   });
@@ -177,6 +206,62 @@ const RoomPage = () => {
     },
   });
 
+  const { mutate: updateRoom, isPending: isUpdating } = useMutation({
+    mutationFn: async () => {
+      let ttl: number | undefined = undefined;
+
+      if (ttlHours !== "" || ttlMinutes !== "") {
+        const h = parseInt(ttlHours || "0", 10);
+        const m = parseInt(ttlMinutes || "0", 10);
+        const total = h * 3600 + m * 60;
+
+        if (total === 0) {
+          throw new Error("TTL_ZERO");
+        }
+        ttl = total;
+      }
+
+      await api.room.update.patch(
+        {
+          roomName: editRoomName,
+          description: editDescription,
+          ttl,
+        },
+        { query: { roomId } },
+      );
+    },
+    onError: (error) => {
+      if (error.message === "TTL_ZERO") {
+        setTtlError("Timer cannot be 00:00");
+      }
+    },
+    onSuccess: () => {
+      setIsEditDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["roomInfo", roomId] });
+      queryClient.invalidateQueries({ queryKey: ["ttl", roomId] });
+    },
+  });
+
+  useEffect(() => {
+    if (isEditDialogOpen && roomInfo) {
+      setEditRoomName(String(roomInfo.roomName || ""));
+      setEditDescription(String(roomInfo.description || ""));
+      setTtlHours("");
+      setTtlMinutes("");
+      setTtlError("");
+    }
+  }, [isEditDialogOpen, roomInfo]);
+
+  useEffect(() => {
+    setTtlError("");
+    const h = parseInt(ttlHours || "0", 10);
+    const m = parseInt(ttlMinutes || "0", 10);
+
+    if (h === 24 && m > 0) {
+      setTtlError("Max duration is 24:00");
+    }
+  }, [ttlHours, ttlMinutes]);
+
   const copyLink = () => {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
@@ -190,63 +275,118 @@ const RoomPage = () => {
       <main className="flex-1 overflow-y-auto px-2 overflow-x-hidden">
         <LayoutWrapper>
           <main className="flex flex-col min-h-[calc(100svh-6rem)] sm:min-h-[calc(100svh-11rem)] max-h-[calc(100svh-11rem)] overflow-hidden">
-            <header className="border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/30">
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col">
-                  <span className="text-xs text-zinc-500 uppercase">
-                    Room ID
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-green-500 truncate">
-                      <span className="md:hidden">{roomId.slice(0, 4)}...</span>
-                      <span className="hidden md:inline">
-                        {roomId.slice(0, 10)}...
-                      </span>
+            <header className="border-b border-zinc-800 flex flex-col justify-center items-start bg-zinc-900/30">
+              <div className="flex flex-row justify-between items-center w-full border-b border-edge p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-zinc-500 uppercase">
+                      {roomInfo?.roomName ? "Room" : "Room ID"}
                     </span>
-                    <button
-                      onClick={copyLink}
-                      className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-green-500 truncate">
+                        {roomInfo?.roomName ? (
+                          <>
+                            <span className="md:hidden">
+                              {roomInfo.roomName.slice(0, 4)}...
+                            </span>
+                            <span className="hidden md:inline">
+                              {roomInfo.roomName.slice(0, 10)}...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="md:hidden">
+                              {roomId.slice(0, 4)}...
+                            </span>
+                            <span className="hidden md:inline">
+                              {roomId.slice(0, 10)}...
+                            </span>
+                          </>
+                        )}
+                      </span>
+                      <button
+                        onClick={copyLink}
+                        className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 text-zinc-400 hover:text-zinc-200 transition-colors"
+                      >
+                        {copyStatus}
+                      </button>
+                      <button
+                        onClick={() => setIsEditDialogOpen(true)}
+                        className="text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="h-8 w-px bg-zinc-800" />
+
+                  <div className="flex flex-col">
+                    <span className="text-xs text-zinc-500 uppercase">
+                      Self-Destruct
+                    </span>
+                    <span
+                      className={`text-sm font-bold flex items-center gap-2 ${
+                        timeRemaining !== null && timeRemaining < 60
+                          ? "text-red-500"
+                          : "text-amber-500"
+                      }`}
                     >
-                      {copyStatus}
-                    </button>
+                      {timeRemaining !== null
+                        ? formatTimeRemaining(timeRemaining)
+                        : "--:--"}
+                    </span>
                   </div>
                 </div>
 
-                <div className="h-8 w-px bg-zinc-800" />
-
-                <div className="flex flex-col">
-                  <span className="text-xs text-zinc-500 uppercase">
-                    Self-Destruct
-                  </span>
-                  <span
-                    className={`text-sm font-bold flex items-center gap-2 ${
-                      timeRemaining !== null && timeRemaining < 60
-                        ? "text-red-500"
-                        : "text-amber-500"
-                    }`}
-                  >
-                    {timeRemaining !== null
-                      ? formatTimeRemaining(timeRemaining)
-                      : "--:--"}
-                  </span>
-                </div>
+                <button
+                  onClick={() => destroyRoom()}
+                  disabled={isDestroying}
+                  className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <PlugConnectedXIcon />
+                  <span className="hidden sm:block">DESTROY NOW</span>
+                </button>
               </div>
 
-              <button
-                onClick={() => destroyRoom()}
-                disabled={isDestroying}
-                className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              >
-                <PlugConnectedXIcon />
-                <span className="hidden sm:block">DESTROY NOW</span>
-              </button>
+              {roomInfo?.description && (
+                <div className="max-w-[94svw] sm:max-w-[60svw] p-2">
+                  {!isDescExpanded ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-zinc-500 truncate min-w-0">
+                        {roomInfo.description}
+                      </span>
+                      {roomInfo.description.length > 20 && (
+                        <button
+                          onClick={() => setIsDescExpanded(true)}
+                          className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium shrink-0"
+                        >
+                          more
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <p className="text-xs text-zinc-400 bg-zinc-800/60 border border-zinc-700/50 px-2.5 py-1.5 leading-relaxed whitespace-pre-wrap wrap-break-word">
+                        {roomInfo.description}
+                      </p>
+                      <button
+                        onClick={() => setIsDescExpanded(false)}
+                        className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium mt-1"
+                      >
+                        less
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </header>
 
             {/* MESSAGES */}
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4 thin-scrollbar"
+              className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4"
             >
               {/* Loader at top for loading older messages */}
               {isFetchingNextPage && (
@@ -337,6 +477,123 @@ const RoomPage = () => {
       <div className="sm:block hidden">
         <Footer />
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="border-zinc-800 bg-zinc-900 rounded-none! sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">
+              Edit Room Details
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label
+                htmlFor="name"
+                className="text-sm font-medium text-zinc-400"
+              >
+                Room Name
+              </label>
+              <input
+                id="name"
+                value={editRoomName}
+                onChange={(e) => setEditRoomName(e.target.value)}
+                className="col-span-3 h-9 w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-1 text-sm text-zinc-100 shadow-sm transition-colors placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                maxLength={100}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label
+                htmlFor="description"
+                className="text-sm font-medium text-zinc-400"
+              >
+                Description
+              </label>
+              <textarea
+                id="description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="col-span-3 min-h-[100px] w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+                maxLength={500}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-zinc-400">
+                Reset Timer (HH:MM)
+              </label>
+              <div className="flex items-start gap-2">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00"
+                    value={ttlHours}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (!/^\d*$/.test(val)) return;
+                      val = val.replace(/^0+(?=\d)/, "");
+                      if (val === "" || parseInt(val) <= 24) {
+                        setTtlHours(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (ttlHours.length === 1) setTtlHours("0" + ttlHours);
+                    }}
+                    className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                    Hours (0-24)
+                  </span>
+                </div>
+                <span className="text-zinc-500 py-2 font-bold">:</span>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="00"
+                    value={ttlMinutes}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (!/^\d*$/.test(val)) return;
+                      val = val.replace(/^0+(?=\d)/, "");
+                      if (val === "" || parseInt(val) <= 59) {
+                        setTtlMinutes(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (ttlMinutes.length === 1)
+                        setTtlMinutes("0" + ttlMinutes);
+                    }}
+                    className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                    Mins (0-59)
+                  </span>
+                </div>
+              </div>
+              {ttlError && (
+                <p className="text-red-500 text-xs font-bold bg-red-500/10 p-2 border border-red-500/20">
+                  {ttlError}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setIsEditDialogOpen(false)}
+              className="px-4 py-2 text-sm bg-zinc-800 text-zinc-100 hover:bg-zinc-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => updateRoom()}
+              disabled={isUpdating || !!ttlError}
+              className="px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {isUpdating ? "Saving..." : "Save Changes"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import z from "zod";
 import { Elysia } from "elysia";
 import { nanoid } from "nanoid";
+import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { authMiddleware } from "./auth";
 import { Message, realtime } from "@/lib/realtime";
@@ -18,7 +19,7 @@ const rooms = new Elysia({
 })
   .post(
     "/create",
-    async ({ query }) => {
+    async ({ query, body }) => {
       const roomId = nanoid();
       const ttl = query.ttl ? Number(query.ttl) : ROOM_TTL_SECONDS;
       const validTtl = ALLOWED_TTL_VALUES.includes(
@@ -27,9 +28,14 @@ const rooms = new Elysia({
         ? ttl
         : ROOM_TTL_SECONDS;
 
+      const roomName = body?.roomName || null;
+      const description = body?.description || null;
+
       await redis.hset(`meta:${roomId}`, {
         connected: [],
         createdAt: Date.now(),
+        ...(roomName && { roomName }),
+        ...(description && { description }),
       });
 
       await redis.expire(`meta:${roomId}`, validTtl);
@@ -37,6 +43,8 @@ const rooms = new Elysia({
       // Analytics: Store room in PostgreSQL
       await db.insert(roomsTable).values({
         roomId,
+        roomName,
+        description,
         ttlSeconds: validTtl,
       });
 
@@ -45,6 +53,10 @@ const rooms = new Elysia({
     {
       query: z.object({
         ttl: z.string().optional(),
+      }),
+      body: z.object({
+        roomName: z.string().max(100).optional(),
+        description: z.string().max(500).optional(),
       }),
     },
   )
@@ -55,6 +67,25 @@ const rooms = new Elysia({
       const ttl = await redis.ttl(`meta:${auth.roomId}`);
 
       return { ttl: ttl > 0 ? ttl : 0 };
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+    },
+  )
+  .get(
+    "/info",
+    async ({ auth }) => {
+      const meta = await redis.hgetall<{
+        roomName?: string;
+        description?: string;
+      }>(`meta:${auth.roomId}`);
+
+      return {
+        roomName: meta?.roomName || null,
+        description: meta?.description || null,
+      };
     },
     {
       query: z.object({
@@ -78,6 +109,64 @@ const rooms = new Elysia({
     {
       query: z.object({
         roomId: z.string(),
+      }),
+    },
+  )
+  .patch(
+    "/update",
+    async ({ auth, body, set }) => {
+      try {
+        const { roomName, description, ttl } = body;
+        console.log("Update request:", {
+          roomId: auth.roomId,
+          roomName,
+          description,
+          ttl,
+        });
+
+        const updates: Record<string, string> = {
+          ...(roomName !== undefined && { roomName }),
+          ...(description !== undefined && { description }),
+        };
+
+        if (Object.keys(updates).length > 0) {
+          await redis.hset(`meta:${auth.roomId}`, updates);
+        }
+
+        if (ttl !== undefined) {
+          // Validate TTL: Must be positive and not exceed 24 hours (86400s)
+          if (ttl > 0 && ttl <= 86400) {
+            await Promise.all([
+              redis.expire(`meta:${auth.roomId}`, ttl),
+              redis.expire(`messages:${auth.roomId}`, ttl),
+              redis.expire(`history:${auth.roomId}`, ttl),
+            ]);
+
+            // Update analytics DB
+            await db
+              .update(roomsTable)
+              .set({ ttlSeconds: ttl })
+              .where(eq(roomsTable.roomId, auth.roomId));
+
+            console.log(`Updated TTL for room ${auth.roomId} to ${ttl}`);
+          }
+        }
+
+        return { roomName, description, ttl };
+      } catch (error) {
+        console.error("Update error:", error);
+        set.status = 500;
+        return { error: String(error) };
+      }
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+      body: z.object({
+        roomName: z.string().max(100).optional(),
+        description: z.string().max(500).optional(),
+        ttl: z.number().optional(),
       }),
     },
   );
@@ -188,4 +277,5 @@ export type App = typeof app;
 
 export const GET = app.fetch;
 export const POST = app.fetch;
+export const PATCH = app.fetch;
 export const DELETE = app.fetch;
