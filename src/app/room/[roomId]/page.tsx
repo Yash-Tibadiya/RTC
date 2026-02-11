@@ -575,9 +575,6 @@ const RoomPage = () => {
                   {ttlError}
                 </p>
               )}
-              <p className="text-[10px] text-zinc-500">
-                Set to 00:00 to keep current timer.
-              </p>
             </div>
           </div>
           <DialogFooter>
