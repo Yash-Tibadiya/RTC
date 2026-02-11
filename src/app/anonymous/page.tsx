@@ -29,11 +29,16 @@ function Lobby() {
   const router = useRouter();
   const { username } = useUsername();
   const [selectedTtl, setSelectedTtl] = useState<number>(600);
+  const [roomName, setRoomName] = useState("");
+  const [description, setDescription] = useState("");
 
   const { mutate: createRoom } = useMutation({
     mutationFn: async () => {
       const res = await api.room.create.post(
-        {},
+        {
+          ...(roomName.trim() && { roomName: roomName.trim() }),
+          ...(description.trim() && { description: description.trim() }),
+        },
         { query: { ttl: String(selectedTtl) } },
       );
 
@@ -56,7 +61,7 @@ function Lobby() {
         </div>
 
         <div className="border border-zinc-800 bg-zinc-900/50 p-6 backdrop-blur-md">
-          <div className="space-y-5">
+          <div className="flex flex-col gap-2">
             <div className="space-y-2">
               <label className="flex items-center text-zinc-500">
                 Your Identity
@@ -67,6 +72,36 @@ function Lobby() {
                   {username}
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center text-zinc-500">
+                Room Name
+                <span className="text-zinc-700 text-xs ml-2">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                placeholder="e.g. Team Standup"
+                maxLength={100}
+                className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 p-3 text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center text-zinc-500">
+                Description
+                <span className="text-zinc-700 text-xs ml-2">(optional)</span>
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of this room..."
+                maxLength={500}
+                rows={2}
+                className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 p-3 text-sm resize-none"
+              />
             </div>
 
             <div className="space-y-2">

@@ -18,7 +18,7 @@ const rooms = new Elysia({
 })
   .post(
     "/create",
-    async ({ query }) => {
+    async ({ query, body }) => {
       const roomId = nanoid();
       const ttl = query.ttl ? Number(query.ttl) : ROOM_TTL_SECONDS;
       const validTtl = ALLOWED_TTL_VALUES.includes(
@@ -27,9 +27,14 @@ const rooms = new Elysia({
         ? ttl
         : ROOM_TTL_SECONDS;
 
+      const roomName = body?.roomName || null;
+      const description = body?.description || null;
+
       await redis.hset(`meta:${roomId}`, {
         connected: [],
         createdAt: Date.now(),
+        ...(roomName && { roomName }),
+        ...(description && { description }),
       });
 
       await redis.expire(`meta:${roomId}`, validTtl);
@@ -37,6 +42,8 @@ const rooms = new Elysia({
       // Analytics: Store room in PostgreSQL
       await db.insert(roomsTable).values({
         roomId,
+        roomName,
+        description,
         ttlSeconds: validTtl,
       });
 
@@ -45,6 +52,10 @@ const rooms = new Elysia({
     {
       query: z.object({
         ttl: z.string().optional(),
+      }),
+      body: z.object({
+        roomName: z.string().max(100).optional(),
+        description: z.string().max(500).optional(),
       }),
     },
   )
@@ -55,6 +66,25 @@ const rooms = new Elysia({
       const ttl = await redis.ttl(`meta:${auth.roomId}`);
 
       return { ttl: ttl > 0 ? ttl : 0 };
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+    },
+  )
+  .get(
+    "/info",
+    async ({ auth }) => {
+      const meta = await redis.hgetall<{
+        roomName?: string;
+        description?: string;
+      }>(`meta:${auth.roomId}`);
+
+      return {
+        roomName: meta?.roomName || null,
+        description: meta?.description || null,
+      };
     },
     {
       query: z.object({

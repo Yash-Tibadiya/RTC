@@ -3,6 +3,8 @@ import { pgTable, serial, text, bigint, timestamp } from "drizzle-orm/pg-core";
 export const rooms = pgTable("rooms", {
   index: serial("index").primaryKey(),
   roomId: text("room_id").notNull().unique(),
+  roomName: text("room_name"),
+  description: text("description"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   ttlSeconds: bigint("ttl_seconds", { mode: "number" }),
 });

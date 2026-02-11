@@ -49,6 +49,14 @@ const RoomPage = () => {
     },
   });
 
+  const { data: roomInfo } = useQuery({
+    queryKey: ["roomInfo", roomId],
+    queryFn: async () => {
+      const res = await api.room.info.get({ query: { roomId } });
+      return res.data;
+    },
+  });
+
   useEffect(() => {
     if (ttlData?.ttl !== undefined) setTimeRemaining(ttlData.ttl);
   }, [ttlData]);
@@ -194,22 +202,35 @@ const RoomPage = () => {
               <div className="flex items-center gap-4">
                 <div className="flex flex-col">
                   <span className="text-xs text-zinc-500 uppercase">
-                    Room ID
+                    {roomInfo?.roomName ? "Room" : "Room ID"}
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-green-500 truncate">
-                      <span className="md:hidden">{roomId.slice(0, 4)}...</span>
-                      <span className="hidden md:inline">
-                        {roomId.slice(0, 10)}...
-                      </span>
+                      {roomInfo?.roomName ? (
+                        <span>{roomInfo.roomName}</span>
+                      ) : (
+                        <>
+                          <span className="md:hidden">
+                            {roomId.slice(0, 4)}...
+                          </span>
+                          <span className="hidden md:inline">
+                            {roomId.slice(0, 10)}...
+                          </span>
+                        </>
+                      )}
                     </span>
                     <button
                       onClick={copyLink}
-                      className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                      className="text-[10px] bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 text-zinc-400 hover:text-zinc-200 transition-colors"
                     >
                       {copyStatus}
                     </button>
                   </div>
+                  {roomInfo?.description && (
+                    <span className="text-xs text-zinc-500 mt-0.5 truncate max-w-[200px] sm:max-w-xs">
+                      {roomInfo.description}
+                    </span>
+                  )}
                 </div>
 
                 <div className="h-8 w-px bg-zinc-800" />
@@ -235,7 +256,7 @@ const RoomPage = () => {
               <button
                 onClick={() => destroyRoom()}
                 disabled={isDestroying}
-                className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 rounded text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                className="text-xs bg-zinc-800 hover:bg-red-600 px-3 py-1.5 text-zinc-400 hover:text-white font-bold transition-all group flex items-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
               >
                 <PlugConnectedXIcon />
                 <span className="hidden sm:block">DESTROY NOW</span>
