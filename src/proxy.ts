@@ -1,67 +1,117 @@
-import { NextRequest, NextResponse } from "next/server";
-import { redis } from "./lib/redis";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { redis } from "@/lib/redis"; // Ensure this path is correct alias
 import { nanoid } from "nanoid";
 
-export const proxy = async (req: NextRequest) => {
-  // OVERVIEW: CHECK IF USER IS ALLOWED TO JOIN THE ROOM
-  // IF ALLOWED: LET THEM JOIN
-  // IF NOT ALLOWED: SEND THEM TO HOMEPAGE
+export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
 
-  const pathname = req.nextUrl.pathname;
+  // 1. Admin Logic
+  // --------------------------------------------------------------------------
+  if (path.startsWith("/admin") || path.startsWith("/api/admin")) {
+    // Allow login/logout API endpoints
+    if (path === "/api/admin/login" || path === "/api/admin/logout") {
+      return NextResponse.next();
+    }
 
-  // CHECK IF ROOM EXISTS : localhost:3000/room/LaYXdqq87T7Yd1hQd5pnV
-  const roomMatch = pathname.match(/^\/room\/([^/]+)$/);
-  if (!roomMatch)
-    return NextResponse.redirect(
-      new URL("/status?code=404&heading=Invalid URL", req.url),
-    );
+    const isAdmin =
+      request.cookies.get("admin_authenticated")?.value === "true";
 
-  const roomId = roomMatch[1];
+    // Handle Admin UI Routes
+    if (path.startsWith("/admin")) {
+      if (path === "/admin/login") {
+        if (isAdmin) {
+          return NextResponse.redirect(new URL("/admin", request.url));
+        }
+        return NextResponse.next();
+      }
+      if (!isAdmin) {
+        return NextResponse.redirect(new URL("/admin/login", request.url));
+      }
+    }
 
-  // CHECK IF ROOM EXISTS IN REDIS
-  const meta = await redis.hgetall<{ connected: string[]; createdAt: number }>(
-    `meta:${roomId}`,
-  );
+    // Handle Admin API Routes
+    if (path.startsWith("/api/admin")) {
+      if (!isAdmin) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
 
-  if (!meta) {
-    return NextResponse.redirect(
-      new URL("/status?code=404&heading=Room Not Found", req.url),
-    );
-  }
-
-  // CHECK IF USER IS ALREADY JOINED
-  const existingToken = req.cookies.get("x-auth-token")?.value;
-
-  // USER IS ALLOWED TO JOIN ROOM
-  if (existingToken && meta.connected.includes(existingToken)) {
+    // If authenticated admin, proceed
     return NextResponse.next();
   }
 
-  // USER IS NOT ALLOWED TO JOIN (2 USERS ALREADY JOINED)
-  if (meta.connected.length >= 2) {
-    return NextResponse.redirect(
-      new URL("/status?code=FULL&heading=Room Full", req.url),
-    );
+  // 2. Room Proxy Logic (Merged from src/proxy.ts)
+  // --------------------------------------------------------------------------
+  if (path.startsWith("/room/")) {
+    const roomMatch = path.match(/^\/room\/([^/]+)$/);
+
+    if (!roomMatch) {
+      return NextResponse.redirect(
+        new URL("/status?code=404&heading=Invalid URL", request.url),
+      );
+    }
+
+    const roomId = roomMatch[1];
+
+    // Check if room exists in Redis
+    const meta = await redis.hgetall<{
+      connected: string[];
+      createdAt: number;
+    }>(`meta:${roomId}`);
+
+    if (!meta) {
+      return NextResponse.redirect(
+        new URL("/status?code=404&heading=Room Not Found", request.url),
+      );
+    }
+
+    // Check if user is already joined
+    const existingToken = request.cookies.get("x-auth-token")?.value;
+
+    if (
+      existingToken &&
+      meta.connected &&
+      meta.connected.includes(existingToken)
+    ) {
+      return NextResponse.next();
+    }
+
+    // Check capacity (2 users max)
+    const connectedCount = meta.connected ? meta.connected.length : 0;
+    if (connectedCount >= 2) {
+      return NextResponse.redirect(
+        new URL("/status?code=FULL&heading=Room Full", request.url),
+      );
+    }
+
+    // Log new user in
+    const response = NextResponse.next();
+    const token = nanoid();
+
+    response.cookies.set("x-auth-token", token, {
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    const newConnected = meta.connected ? [...meta.connected, token] : [token];
+    await redis.hset(`meta:${roomId}`, {
+      connected: newConnected,
+    });
+
+    return response;
   }
 
-  const response = NextResponse.next();
-
-  const token = nanoid();
-
-  response.cookies.set("x-auth-token", token, {
-    path: "/",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
-
-  await redis.hset(`meta:${roomId}`, {
-    connected: [...meta.connected, token],
-  });
-
-  return response;
-};
+  // Default behavior for other routes
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: "/room/:path*",
+  matcher: [
+    "/admin/:path*",
+    "/api/admin/:path*",
+    "/room/:path*", // Matches /room/123, /room/abc, etc.
+  ],
 };
