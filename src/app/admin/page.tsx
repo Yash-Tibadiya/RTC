@@ -47,6 +47,15 @@ export default function AdminDashboard() {
     },
   });
 
+  const { data: stats } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/stats");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+  });
+
   // --- Mutations ---
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -63,6 +72,7 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       setIsCreateOpen(false);
     },
   });
@@ -101,6 +111,7 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
       setDeletingRoom(null);
     },
   });
@@ -162,13 +173,21 @@ export default function AdminDashboard() {
         </header>
 
         {/* Stats */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2">
           <Card className="border-zinc-800 bg-zinc-900/50">
             <CardHeader>
               <CardTitle>Total Rooms</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-4xl font-bold">{rooms?.length || 0}</p>
+              <p className="text-4xl font-bold">{stats?.rooms || 0}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-zinc-800 bg-zinc-900/50">
+            <CardHeader>
+              <CardTitle>Total Messages</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-4xl font-bold">{stats?.messages || 0}</p>
             </CardContent>
           </Card>
         </div>
