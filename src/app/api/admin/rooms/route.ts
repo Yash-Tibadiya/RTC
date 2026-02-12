@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/drizzle/db";
 import { rooms } from "@/drizzle/schema";
 import { desc } from "drizzle-orm";
-import { nanoid } from "nanoid";
 
 import { redis } from "@/lib/redis";
 

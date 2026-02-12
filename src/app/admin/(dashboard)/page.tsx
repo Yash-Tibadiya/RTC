@@ -11,6 +11,7 @@ import {
   Trash2,
   LogOut,
   RefreshCcw,
+  LayoutList,
 } from "lucide-react";
 import { api } from "@/lib/eden";
 
@@ -38,7 +39,7 @@ export default function AdminDashboard() {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
 
-  // Stats State
+  // Stats
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: async () => {
@@ -185,6 +186,13 @@ export default function AdminDashboard() {
                 size={16}
                 className={isRefetching ? "animate-spin" : ""}
               />
+            </button>
+            <button
+              onClick={() => router.push("/admin/rooms")}
+              className="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-2 text-zinc-400 hover:text-white font-bold transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <LayoutList size={14} />
+              <span className="hidden sm:inline">ALL ROOMS</span>
             </button>
             <button
               onClick={() => setIsCreateOpen(true)}
