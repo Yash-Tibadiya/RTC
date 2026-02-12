@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -35,6 +35,36 @@ export default function AdminDashboard() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
+
+  // Edit State
+  const [ttlHours, setTtlHours] = useState("");
+  const [ttlMinutes, setTtlMinutes] = useState("");
+  const [ttlError, setTtlError] = useState("");
+
+  useEffect(() => {
+    if (editingRoom) {
+      if (editingRoom.ttlSeconds) {
+        const h = Math.floor(editingRoom.ttlSeconds / 3600);
+        const m = Math.floor((editingRoom.ttlSeconds % 3600) / 60);
+        setTtlHours(h.toString().padStart(2, "0"));
+        setTtlMinutes(m.toString().padStart(2, "0"));
+      } else {
+        setTtlHours("");
+        setTtlMinutes("");
+      }
+      setTtlError("");
+    }
+  }, [editingRoom]);
+
+  useEffect(() => {
+    setTtlError("");
+    const h = parseInt(ttlHours || "0", 10);
+    const m = parseInt(ttlMinutes || "0", 10);
+
+    if (h === 24 && m > 0) {
+      setTtlError("Max duration is 24:00");
+    }
+  }, [ttlHours, ttlMinutes]);
 
   // Stats State
   const { data: stats, refetch: refetchStats } = useQuery({
@@ -200,6 +230,16 @@ export default function AdminDashboard() {
 
       {/* Room List Content */}
       <div className="flex-1 p-4 bg-black/20">
+        <div className="flex flex-col gap-4 pb-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-zinc-100">
+              Active Rooms ({rooms?.length || 0})
+            </h2>
+            <span className="text-xs text-zinc-500 font-mono">
+              Rooms expire after 24 hours of inactivity
+            </span>
+          </div>
+        </div>
         {isLoading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
@@ -366,22 +406,46 @@ export default function AdminDashboard() {
       {/* EDIT DIALOG */}
       <Dialog
         open={!!editingRoom}
-        onOpenChange={(open) => !open && setEditingRoom(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingRoom(null);
+            setTtlHours("");
+            setTtlMinutes("");
+            setTtlError("");
+          }
+        }}
       >
         <DialogContent className="border-zinc-800 bg-zinc-900 rounded-none! sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">Edit Room</DialogTitle>
+            <DialogTitle className="text-zinc-100">
+              Edit Room Details
+            </DialogTitle>
           </DialogHeader>
           {editingRoom && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
+
+                let ttl: number | undefined = undefined;
+
+                if (ttlHours !== "" || ttlMinutes !== "") {
+                  const h = parseInt(ttlHours || "0", 10);
+                  const m = parseInt(ttlMinutes || "0", 10);
+                  const total = h * 3600 + m * 60;
+
+                  if (total === 0) {
+                    setTtlError("Timer cannot be 00:00");
+                    return;
+                  }
+                  ttl = total;
+                }
+
                 updateMutation.mutate({
                   id: editingRoom.roomId,
                   roomName: formData.get("roomName") as string,
                   description: formData.get("description") as string,
-                  ttlSeconds: formData.get("ttlSeconds") as string,
+                  ttlSeconds: ttl ? String(ttl) : "0",
                 });
               }}
               className="grid gap-4 py-4"
@@ -410,14 +474,63 @@ export default function AdminDashboard() {
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-zinc-400">
-                  TTL (Seconds)
+                  Reset Timer (HH:MM)
                 </label>
-                <input
-                  name="ttlSeconds"
-                  type="number"
-                  defaultValue={editingRoom.ttlSeconds || ""}
-                  className="w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
-                />
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="00"
+                      value={ttlHours}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (!/^\d*$/.test(val)) return;
+                        val = val.replace(/^0+(?=\d)/, "");
+                        if (val === "" || parseInt(val) <= 24) {
+                          setTtlHours(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (ttlHours.length === 1) setTtlHours("0" + ttlHours);
+                      }}
+                      className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                      Hours (0-24)
+                    </span>
+                  </div>
+                  <span className="text-zinc-500 py-2 font-bold">:</span>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="00"
+                      value={ttlMinutes}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (!/^\d*$/.test(val)) return;
+                        val = val.replace(/^0+(?=\d)/, "");
+                        if (val === "" || parseInt(val) <= 59) {
+                          setTtlMinutes(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (ttlMinutes.length === 1)
+                          setTtlMinutes("0" + ttlMinutes);
+                      }}
+                      className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <span className="text-[10px] text-zinc-500 text-center block mt-1">
+                      Mins (0-59)
+                    </span>
+                  </div>
+                </div>
+                {ttlError && (
+                  <p className="text-red-500 text-xs font-bold bg-red-500/10 p-2 border border-red-500/20">
+                    {ttlError}
+                  </p>
+                )}
               </div>
               <DialogFooter>
                 <button
@@ -429,7 +542,7 @@ export default function AdminDashboard() {
                 </button>
                 <button
                   type="submit"
-                  disabled={updateMutation.isPending}
+                  disabled={updateMutation.isPending || !!ttlError}
                   className="px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {updateMutation.isPending ? "Saving..." : "Save Changes"}
