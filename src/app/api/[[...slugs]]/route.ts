@@ -82,8 +82,8 @@ const rooms = new Elysia({
       }>(`meta:${auth.roomId}`);
 
       return {
-        roomName: meta?.roomName || null,
-        description: meta?.description || null,
+        roomName: meta?.roomName ? String(meta.roomName) : null,
+        description: meta?.description ? String(meta.description) : null,
       };
     },
     {

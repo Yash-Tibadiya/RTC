@@ -210,6 +210,10 @@ const RoomPage = () => {
     mutationFn: async () => {
       let ttl: number | undefined = undefined;
 
+      if (ttlHours === "" && ttlMinutes === "") {
+        throw new Error("TTL_REQUIRED");
+      }
+
       if (ttlHours !== "" || ttlMinutes !== "") {
         const h = parseInt(ttlHours || "0", 10);
         const m = parseInt(ttlMinutes || "0", 10);
@@ -233,6 +237,8 @@ const RoomPage = () => {
     onError: (error) => {
       if (error.message === "TTL_ZERO") {
         setTtlError("Timer cannot be 00:00");
+      } else if (error.message === "TTL_REQUIRED") {
+        setTtlError("Timer is required");
       }
     },
     onSuccess: () => {
@@ -257,8 +263,12 @@ const RoomPage = () => {
     const h = parseInt(ttlHours || "0", 10);
     const m = parseInt(ttlMinutes || "0", 10);
 
-    if (h === 24 && m > 0) {
+    if (ttlHours === "" && ttlMinutes === "") {
+      setTtlError("Timer is required");
+    } else if (h === 24 && m > 0) {
       setTtlError("Max duration is 24:00");
+    } else if ((ttlHours !== "" || ttlMinutes !== "") && h === 0 && m === 0) {
+      setTtlError("Timer cannot be 00:00");
     }
   }, [ttlHours, ttlMinutes]);
 
@@ -287,10 +297,10 @@ const RoomPage = () => {
                         {roomInfo?.roomName ? (
                           <>
                             <span className="md:hidden">
-                              {roomInfo.roomName.slice(0, 4)}...
+                              {String(roomInfo.roomName).slice(0, 4)}...
                             </span>
                             <span className="hidden md:inline">
-                              {roomInfo.roomName.slice(0, 10)}...
+                              {String(roomInfo.roomName).slice(0, 10)}...
                             </span>
                           </>
                         ) : (

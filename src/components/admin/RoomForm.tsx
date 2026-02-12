@@ -56,13 +56,22 @@ export function RoomForm({
     const h = parseInt(ttlHours || "0", 10);
     const m = parseInt(ttlMinutes || "0", 10);
 
-    if (h === 24 && m > 0) {
+    if (ttlHours === "" && ttlMinutes === "") {
+      setTtlError("Timer is required");
+    } else if (h === 24 && m > 0) {
       setTtlError("Max duration is 24:00");
+    } else if ((ttlHours !== "" || ttlMinutes !== "") && h === 0 && m === 0) {
+      setTtlError("Timer cannot be 00:00");
     }
   }, [ttlHours, ttlMinutes]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (ttlHours === "" && ttlMinutes === "") {
+      setTtlError("Timer is required");
+      return;
+    }
 
     let ttl = 0;
     if (ttlHours !== "" || ttlMinutes !== "") {
