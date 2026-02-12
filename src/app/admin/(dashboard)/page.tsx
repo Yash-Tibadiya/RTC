@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ import {
   LogOut,
   RefreshCcw,
 } from "lucide-react";
+import { api } from "@/lib/eden";
 
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { RoomForm } from "@/components/admin/RoomForm";
 
 type Room = {
   roomId: string;
@@ -35,36 +37,6 @@ export default function AdminDashboard() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
-
-  // Edit State
-  const [ttlHours, setTtlHours] = useState("");
-  const [ttlMinutes, setTtlMinutes] = useState("");
-  const [ttlError, setTtlError] = useState("");
-
-  useEffect(() => {
-    if (editingRoom) {
-      if (editingRoom.ttlSeconds) {
-        const h = Math.floor(editingRoom.ttlSeconds / 3600);
-        const m = Math.floor((editingRoom.ttlSeconds % 3600) / 60);
-        setTtlHours(h.toString().padStart(2, "0"));
-        setTtlMinutes(m.toString().padStart(2, "0"));
-      } else {
-        setTtlHours("");
-        setTtlMinutes("");
-      }
-      setTtlError("");
-    }
-  }, [editingRoom]);
-
-  useEffect(() => {
-    setTtlError("");
-    const h = parseInt(ttlHours || "0", 10);
-    const m = parseInt(ttlMinutes || "0", 10);
-
-    if (h === 24 && m > 0) {
-      setTtlError("Max duration is 24:00");
-    }
-  }, [ttlHours, ttlMinutes]);
 
   // Stats State
   const { data: stats, refetch: refetchStats } = useQuery({
@@ -104,12 +76,16 @@ export default function AdminDashboard() {
       description: string;
       ttlSeconds: string;
     }) => {
-      const res = await fetch("/api/admin/rooms", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to create room");
-      return res.json();
+      const { data: resData, error } = await api.room.create.post(
+        {
+          roomName: data.roomName,
+          description: data.description,
+        },
+        { query: { ttl: data.ttlSeconds } }, // Ensure ttl is passed as string if expected by EDEN or convert
+      );
+
+      if (error) throw new Error("Failed to create room");
+      return resData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-rooms"] });
@@ -337,69 +313,12 @@ export default function AdminDashboard() {
           <DialogHeader>
             <DialogTitle className="text-zinc-100">Create New Room</DialogTitle>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              createMutation.mutate({
-                roomName: formData.get("roomName") as string,
-                description: formData.get("description") as string,
-                ttlSeconds: formData.get("ttlSeconds") as string,
-              });
-            }}
-            className="grid gap-4 py-4"
-          >
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-zinc-400">
-                Room Name
-              </label>
-              <input
-                name="roomName"
-                className="w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
-                placeholder="e.g. General Landing"
-                maxLength={100}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-zinc-400">
-                Description
-              </label>
-              <textarea
-                name="description"
-                className="min-h-[100px] w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 resize-y"
-                placeholder="Room description..."
-                maxLength={500}
-              />
-            </div>
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-zinc-400">
-                TTL (Seconds)
-              </label>
-              <input
-                name="ttlSeconds"
-                type="number"
-                className="w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
-                placeholder="3600"
-              />
-            </div>
-            <DialogFooter>
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="px-4 py-2 text-sm bg-zinc-800 text-zinc-100 hover:bg-zinc-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-              >
-                {createMutation.isPending ? "Creating..." : "Create Room"}
-              </button>
-            </DialogFooter>
-          </form>
+          <RoomForm
+            onSubmit={(data) => createMutation.mutate(data)}
+            onCancel={() => setIsCreateOpen(false)}
+            isSubmitting={createMutation.isPending}
+            submitLabel="Create Room"
+          />
         </DialogContent>
       </Dialog>
 
@@ -409,9 +328,6 @@ export default function AdminDashboard() {
         onOpenChange={(open) => {
           if (!open) {
             setEditingRoom(null);
-            setTtlHours("");
-            setTtlMinutes("");
-            setTtlError("");
           }
         }}
       >
@@ -422,133 +338,20 @@ export default function AdminDashboard() {
             </DialogTitle>
           </DialogHeader>
           {editingRoom && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-
-                let ttl: number | undefined = undefined;
-
-                if (ttlHours !== "" || ttlMinutes !== "") {
-                  const h = parseInt(ttlHours || "0", 10);
-                  const m = parseInt(ttlMinutes || "0", 10);
-                  const total = h * 3600 + m * 60;
-
-                  if (total === 0) {
-                    setTtlError("Timer cannot be 00:00");
-                    return;
-                  }
-                  ttl = total;
-                }
-
+            <RoomForm
+              initialData={editingRoom}
+              onSubmit={(data) => {
                 updateMutation.mutate({
                   id: editingRoom.roomId,
-                  roomName: formData.get("roomName") as string,
-                  description: formData.get("description") as string,
-                  ttlSeconds: ttl ? String(ttl) : "0",
+                  roomName: data.roomName,
+                  description: data.description,
+                  ttlSeconds: data.ttlSeconds,
                 });
               }}
-              className="grid gap-4 py-4"
-            >
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-zinc-400">
-                  Room Name
-                </label>
-                <input
-                  name="roomName"
-                  defaultValue={editingRoom.roomName || ""}
-                  className="w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700"
-                  maxLength={100}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-zinc-400">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  defaultValue={editingRoom.description || ""}
-                  className="min-h-[100px] w-full rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 resize-y"
-                  maxLength={500}
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-zinc-400">
-                  Reset Timer (HH:MM)
-                </label>
-                <div className="flex items-start gap-2">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="00"
-                      value={ttlHours}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        if (!/^\d*$/.test(val)) return;
-                        val = val.replace(/^0+(?=\d)/, "");
-                        if (val === "" || parseInt(val) <= 24) {
-                          setTtlHours(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (ttlHours.length === 1) setTtlHours("0" + ttlHours);
-                      }}
-                      className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <span className="text-[10px] text-zinc-500 text-center block mt-1">
-                      Hours (0-24)
-                    </span>
-                  </div>
-                  <span className="text-zinc-500 py-2 font-bold">:</span>
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="00"
-                      value={ttlMinutes}
-                      onChange={(e) => {
-                        let val = e.target.value;
-                        if (!/^\d*$/.test(val)) return;
-                        val = val.replace(/^0+(?=\d)/, "");
-                        if (val === "" || parseInt(val) <= 59) {
-                          setTtlMinutes(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        if (ttlMinutes.length === 1)
-                          setTtlMinutes("0" + ttlMinutes);
-                      }}
-                      className="w-full text-center rounded-none border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 shadow-sm placeholder:text-zinc-600 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                    <span className="text-[10px] text-zinc-500 text-center block mt-1">
-                      Mins (0-59)
-                    </span>
-                  </div>
-                </div>
-                {ttlError && (
-                  <p className="text-red-500 text-xs font-bold bg-red-500/10 p-2 border border-red-500/20">
-                    {ttlError}
-                  </p>
-                )}
-              </div>
-              <DialogFooter>
-                <button
-                  type="button"
-                  onClick={() => setEditingRoom(null)}
-                  className="px-4 py-2 text-sm bg-zinc-800 text-zinc-100 hover:bg-zinc-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateMutation.isPending || !!ttlError}
-                  className="px-4 py-2 text-sm bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </button>
-              </DialogFooter>
-            </form>
+              onCancel={() => setEditingRoom(null)}
+              isSubmitting={updateMutation.isPending}
+              submitLabel="Save Changes"
+            />
           )}
         </DialogContent>
       </Dialog>

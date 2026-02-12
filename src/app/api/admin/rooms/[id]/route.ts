@@ -3,6 +3,7 @@ import { db } from "@/drizzle/db";
 import { rooms } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
+import { realtime } from "@/lib/realtime";
 
 export async function PATCH(
   req: Request,
@@ -67,8 +68,6 @@ export async function PATCH(
     );
   }
 }
-
-import { realtime } from "@/lib/realtime";
 
 export async function DELETE(
   req: Request,

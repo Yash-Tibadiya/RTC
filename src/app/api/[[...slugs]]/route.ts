@@ -11,8 +11,7 @@ import {
   messages as messagesTable,
 } from "@/drizzle/schema";
 
-const ROOM_TTL_SECONDS = 60 * 10;
-const ALLOWED_TTL_VALUES = [600, 1800, 3600, 43200, 86400] as const;
+const ROOM_TTL_SECONDS = 60 * 60; // Default 1 hour
 
 const rooms = new Elysia({
   prefix: "/room",
@@ -21,12 +20,12 @@ const rooms = new Elysia({
     "/create",
     async ({ query, body }) => {
       const roomId = nanoid();
-      const ttl = query.ttl ? Number(query.ttl) : ROOM_TTL_SECONDS;
-      const validTtl = ALLOWED_TTL_VALUES.includes(
-        ttl as (typeof ALLOWED_TTL_VALUES)[number],
-      )
-        ? ttl
-        : ROOM_TTL_SECONDS;
+      let ttl = query.ttl ? Number(query.ttl) : ROOM_TTL_SECONDS;
+
+      // Validate TTL: Must be between 1 and 86400 seconds (24 hours)
+      if (ttl <= 0 || ttl > 86400) {
+        ttl = ROOM_TTL_SECONDS;
+      }
 
       const roomName = body?.roomName || null;
       const description = body?.description || null;
@@ -38,14 +37,14 @@ const rooms = new Elysia({
         ...(description && { description }),
       });
 
-      await redis.expire(`meta:${roomId}`, validTtl);
+      await redis.expire(`meta:${roomId}`, ttl);
 
       // Analytics: Store room in PostgreSQL
       await db.insert(roomsTable).values({
         roomId,
         roomName,
         description,
-        ttlSeconds: validTtl,
+        ttlSeconds: ttl,
       });
 
       return { roomId };
