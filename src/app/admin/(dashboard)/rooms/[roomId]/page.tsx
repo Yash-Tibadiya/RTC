@@ -116,9 +116,9 @@ export default function RoomMessagesPage() {
                     <th className="p-3 font-medium border-b border-zinc-800 w-[180px]">
                       Sender
                     </th>
-                    <th className="p-3 font-medium border-b border-zinc-800 min-w-[300px]">
+                    {/* <th className="p-3 font-medium border-b border-zinc-800 min-w-[300px]">
                       Message
-                    </th>
+                    </th> */}
                     <th className="p-3 font-medium border-b border-zinc-800 text-right w-[180px]">
                       Time
                     </th>
@@ -136,20 +136,20 @@ export default function RoomMessagesPage() {
                             className={`w-2 h-2 rounded-full ${msg.sender === "system" ? "bg-zinc-500" : "bg-green-500"}`}
                           />
                           <span
-                            className="text-zinc-200 truncate max-w-[150px]"
+                            className="text-zinc-200 truncate max-w-[450px]"
                             title={msg.sender}
                           >
                             {msg.sender}
                           </span>
                         </div>
                       </td>
-                      <td className="p-3 text-zinc-400 text-sm whitespace-pre-wrap wrap-break-word">
+                      {/* <td className="p-3 text-zinc-400 text-sm whitespace-pre-wrap wrap-break-word">
                         {msg.text || (
                           <span className="italic text-zinc-600">
                             No content
                           </span>
                         )}
-                      </td>
+                      </td> */}
                       <td className="p-3 text-zinc-500 font-mono text-xs text-right whitespace-nowrap">
                         {format(
                           new Date(Number(msg.timestamp)),
