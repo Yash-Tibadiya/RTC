@@ -13,6 +13,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useCompletion } from "@ai-sdk/react";
 import PlugConnectedXIcon from "@/components/ui/plug-connected-x-icon";
 import { Message } from "@/lib/realtime";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
@@ -44,7 +45,26 @@ const RoomPage = () => {
   const router = useRouter();
 
   const { username } = useUsername();
-  const [input, setInput] = useState("");
+  // The local input state is replaced by the one from useCompletion
+  // const [input, setInput] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const {
+    completion,
+    complete,
+    input, // Added from useCompletion
+    stop,
+    setInput, // Added from useCompletion
+    isLoading, // Replaced isLoading: isCompleting
+  } = useCompletion({
+    api: "/api/completion",
+    onError: (err) => console.error("Completion error:", err),
+  });
+
+  useEffect(() => {
+    if (completion) {
+      console.log("Completion updated:", completion);
+    }
+  }, [completion]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -456,7 +476,25 @@ const RoomPage = () => {
             <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">
               <div className="flex gap-4">
                 <div className="flex-1 relative group">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse">
+                  {/* Ghost Text Overlay - Z-Index 20 to sit ON TOP of textarea */}
+                  <div className="absolute inset-0 py-3 pl-8 pr-4 text-sm pointer-events-none whitespace-pre-wrap wrap-break-word min-h-[46px] overflow-hidden z-20">
+                    <span className="opacity-0">{input}</span>
+                    {completion && input.length > 0 && (
+                      <span className="text-zinc-500 opacity-60">
+                        {completion}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Debug Info - Visible for debugging */}
+                  <div className="absolute -top-10 right-0 text-[10px] text-zinc-400 font-mono bg-zinc-900 border border-zinc-800 p-1 rounded z-50">
+                    {JSON.stringify({
+                      completion: completion?.slice(0, 10),
+                      inputLen: input.length,
+                    })}
+                  </div>
+
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse z-10 pointer-events-none">
                     {">"}
                   </span>
 
@@ -465,18 +503,41 @@ const RoomPage = () => {
                     autoFocus
                     rows={1}
                     value={input}
+                    style={{ backgroundColor: "transparent" }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         if (input.trim()) {
                           sendMessage({ text: input });
+                          stop();
                           inputRef.current?.focus();
                         }
                       }
+                      if (e.key === "Tab" && completion) {
+                        e.preventDefault();
+                        setInput(input + completion);
+                        stop();
+                      }
                     }}
-                    placeholder="Type message..."
-                    onChange={(e) => setInput(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm resize-none overflow-hidden min-h-[46px]"
+                    placeholder={input.length === 0 ? "Type message..." : ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setInput(val);
+
+                      if (timeoutRef.current) {
+                        clearTimeout(timeoutRef.current);
+                      }
+
+                      timeoutRef.current = setTimeout(() => {
+                        if (val.length > 2) {
+                          console.log("Triggering completion for:", val);
+                          complete(val);
+                        } else {
+                          stop();
+                        }
+                      }, 500);
+                    }}
+                    className="relative z-10 w-full bg-transparent border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm resize-none overflow-hidden min-h-[46px]"
                   />
                 </div>
 
