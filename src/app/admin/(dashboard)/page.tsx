@@ -357,7 +357,7 @@ export default function AdminDashboard() {
 
             {/* Pagination Controls */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+              <div className="flex items-center justify-between">
                 <div className="text-xs text-zinc-500">
                   Page {pagination.page} of {pagination.totalPages}
                 </div>
@@ -365,7 +365,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+                    className="p-2 border border-zinc-800 rounded bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-zinc-400"
                   >
                     <ChevronLeft size={16} />
                   </button>
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                       setPage((p) => Math.min(pagination.totalPages, p + 1))
                     }
                     disabled={page === pagination.totalPages}
-                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+                    className="p-2 border border-zinc-800 rounded bg-zinc-900/50 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-zinc-400"
                   >
                     <ChevronRight size={16} />
                   </button>

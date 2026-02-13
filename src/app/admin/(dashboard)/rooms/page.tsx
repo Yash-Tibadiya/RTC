@@ -171,7 +171,7 @@ export default function TotalRoomsPage() {
 
             {/* Pagination Controls */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+              <div className="flex items-center justify-between">
                 <div className="text-xs text-zinc-500">
                   Page {pagination.page} of {pagination.totalPages}
                 </div>
