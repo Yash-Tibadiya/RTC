@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -9,9 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useDebounce } from "@/hooks/use-debounce";
 
 type Room = {
   roomId: string;
@@ -36,15 +38,27 @@ type RoomsResponse = {
 export default function TotalRoomsPage() {
   const [page, setPage] = useState(1);
   const router = useRouter();
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebounce(searchInput, 500);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   const {
     data: roomsData,
     isLoading,
     isError,
   } = useQuery<RoomsResponse>({
-    queryKey: ["all-rooms", page],
+    queryKey: ["all-rooms", page, debouncedSearch],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/rooms/all?page=${page}&limit=10`);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "10",
+        ...(debouncedSearch && { search: debouncedSearch }),
+      });
+      const res = await fetch(`/api/admin/rooms/all?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch rooms");
       return res.json();
     },
@@ -82,6 +96,20 @@ export default function TotalRoomsPage() {
                 {pagination?.total || 0}
               </span>
             </div>
+          </div>
+
+          <div className="relative hidden md:block w-64">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+            />
+            <input
+              type="text"
+              placeholder="Search all rooms..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-md  py-[7px] pl-9 pr-3 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700 transition-colors"
+            />
           </div>
         </div>
       </header>

@@ -14,10 +14,12 @@ import {
   LayoutList,
   Copy,
   Check,
+  Search,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/eden";
+import { useDebounce } from "@/hooks/use-debounce";
 
 import {
   Dialog,
@@ -28,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { RoomForm } from "@/components/admin/RoomForm";
 import { keepPreviousData } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 type Room = {
   roomId: string;
@@ -57,6 +60,13 @@ export default function AdminDashboard() {
 
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebounce(searchInput, 500);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
 
   // Stats
   const { data: stats, refetch: refetchStats } = useQuery({
@@ -76,9 +86,14 @@ export default function AdminDashboard() {
     refetch: refetchRooms,
     isRefetching,
   } = useQuery<PaginatedResponse>({
-    queryKey: ["admin-rooms", page, limit],
+    queryKey: ["admin-rooms", page, limit, debouncedSearch],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/rooms?page=${page}&limit=${limit}`);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+        ...(debouncedSearch && { search: debouncedSearch }),
+      });
+      const res = await fetch(`/api/admin/rooms?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch rooms");
       return res.json();
     },
@@ -207,6 +222,20 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="relative hidden md:block w-64">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              />
+              <input
+                type="text"
+                placeholder="Search active rooms..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-md pl-9 pr-3 px-3 py-[7px] text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700 transition-colors"
+              />
+            </div>
+
             <button
               onClick={handleRefresh}
               className={`p-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer`}
