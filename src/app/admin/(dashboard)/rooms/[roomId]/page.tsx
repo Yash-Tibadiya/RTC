@@ -14,6 +14,14 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
+type Room = {
+  roomId: string;
+  roomName: string | null;
+  description: string | null;
+  ttlSeconds: number | null;
+  createdAt: string;
+};
+
 type Message = {
   id: number;
   messageId: string;
@@ -39,6 +47,16 @@ export default function RoomMessagesPage() {
   const params = useParams();
   const roomId = params.roomId as string;
   const [page, setPage] = useState(1);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+
+  const { data: roomInfo } = useQuery<Room>({
+    queryKey: ["room-info", roomId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/rooms/${roomId}`);
+      if (!res.ok) throw new Error("Failed to fetch room info");
+      return res.json();
+    },
+  });
 
   const {
     data: messagesData,
@@ -72,10 +90,10 @@ export default function RoomMessagesPage() {
             </Link>
             <div className="flex flex-col">
               <span className="text-xs text-zinc-500 uppercase">
-                Room Messages
+                {roomInfo?.roomName ? "Room" : "Room ID"}
               </span>
               <span className="font-bold text-zinc-100 font-mono">
-                {roomId}
+                {roomInfo?.roomName || roomId}
               </span>
             </div>
 
@@ -91,6 +109,38 @@ export default function RoomMessagesPage() {
             </div>
           </div>
         </div>
+
+        {roomInfo?.description && (
+          <div className="w-full p-2 border-b border-zinc-800 bg-zinc-950/30">
+            {!isDescExpanded ? (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-zinc-500 truncate min-w-0 max-w-[600px]">
+                  {roomInfo.description}
+                </span>
+                {roomInfo.description.length > 50 && (
+                  <button
+                    onClick={() => setIsDescExpanded(true)}
+                    className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium shrink-0"
+                  >
+                    more
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mt-1">
+                <p className="text-xs text-zinc-400 bg-zinc-800/60 border border-zinc-700/50 px-2.5 py-1.5 leading-relaxed whitespace-pre-wrap wrap-break-word">
+                  {roomInfo.description}
+                </p>
+                <button
+                  onClick={() => setIsDescExpanded(false)}
+                  className="text-[10px] text-green-600 hover:text-green-400 transition-colors duration-200 cursor-pointer font-medium mt-1"
+                >
+                  less
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 p-4 bg-black/20">

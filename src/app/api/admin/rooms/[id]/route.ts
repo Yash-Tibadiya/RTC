@@ -5,6 +5,32 @@ import { eq } from "drizzle-orm";
 import { redis } from "@/lib/redis";
 import { realtime } from "@/lib/realtime";
 
+export async function GET(
+  req: Request,
+  props: { params: Promise<{ id: string }> },
+) {
+  try {
+    const params = await props.params;
+    const { id } = params;
+
+    const room = await db.query.rooms.findFirst({
+      where: eq(rooms.roomId, id),
+    });
+
+    if (!room) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(room);
+  } catch (error) {
+    console.error("Error fetching room:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch room" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function PATCH(
   req: Request,
   props: { params: Promise<{ id: string }> },

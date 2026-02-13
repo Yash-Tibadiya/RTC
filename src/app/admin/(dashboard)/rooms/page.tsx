@@ -117,6 +117,9 @@ export default function TotalRoomsPage() {
                     <th className="p-3 font-medium border-b border-zinc-800 text-right">
                       TTL (Seconds)
                     </th>
+                    <th className="p-3 font-medium border-b border-zinc-800 text-right">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800 bg-zinc-950/30">
@@ -124,6 +127,7 @@ export default function TotalRoomsPage() {
                     <tr
                       key={room.roomId}
                       className="hover:bg-zinc-900/40 transition-colors"
+                      onClick={() => router.push(`/admin/rooms/${room.roomId}`)}
                     >
                       <td className="p-3 font-medium">
                         <div className="flex items-center gap-2">
@@ -141,13 +145,6 @@ export default function TotalRoomsPage() {
                               {room.roomId}
                             </span>
                           )}
-                          <Link
-                            href={`/admin/rooms/${room.roomId}`}
-                            className="bg-zinc-800 hover:bg-zinc-700 p-1 rounded text-zinc-500 hover:text-green-500 transition-colors"
-                            title="View Messages"
-                          >
-                            <MessageSquare size={12} />
-                          </Link>
                         </div>
                       </td>
                       <td className="p-3 text-zinc-400 max-w-[200px] truncate hidden sm:table-cell text-xs">
@@ -162,6 +159,16 @@ export default function TotalRoomsPage() {
                       </td>
                       <td className="p-3 text-zinc-500 font-mono text-xs text-right">
                         {room.ttlSeconds !== null ? room.ttlSeconds : "-"}
+                      </td>
+                      <td className="p-3 text-zinc-500 font-mono text-xs text-right">
+                        <Link
+                          href={`/admin/rooms/${room.roomId}`}
+                          className="flex justify-center items-center gap-2 hover:text-green-500 border border-zinc-800 hover:border-green-500 py-0.5"
+                          title="View Messages"
+                        >
+                          <MessageSquare size={12} className="shrink-0" />
+                          View
+                        </Link>
                       </td>
                     </tr>
                   ))}
