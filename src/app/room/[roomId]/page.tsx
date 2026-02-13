@@ -45,7 +45,7 @@ const RoomPage = () => {
 
   const { username } = useUsername();
   const [input, setInput] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -77,6 +77,13 @@ const RoomPage = () => {
       return res.data;
     },
   });
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+      inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+    }
+  }, [input]);
 
   useEffect(() => {
     if (ttlData?.ttl !== undefined) setTimeRemaining(ttlData.ttl);
@@ -453,19 +460,23 @@ const RoomPage = () => {
                     {">"}
                   </span>
 
-                  <input
+                  <textarea
+                    ref={inputRef}
                     autoFocus
-                    type="text"
+                    rows={1}
                     value={input}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && input.trim()) {
-                        sendMessage({ text: input });
-                        inputRef.current?.focus();
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (input.trim()) {
+                          sendMessage({ text: input });
+                          inputRef.current?.focus();
+                        }
                       }
                     }}
                     placeholder="Type message..."
                     onChange={(e) => setInput(e.target.value)}
-                    className="w-full bg-black border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm"
+                    className="w-full bg-black border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm resize-none overflow-hidden min-h-[46px]"
                   />
                 </div>
 
