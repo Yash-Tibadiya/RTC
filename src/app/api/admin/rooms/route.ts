@@ -1,19 +1,32 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/drizzle/db";
 import { rooms } from "@/drizzle/schema";
 import { desc } from "drizzle-orm";
 
 import { redis } from "@/lib/redis";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const skip = (page - 1) * limit;
+
     const allRooms = await db
       .select()
       .from(rooms)
       .orderBy(desc(rooms.createdAt));
 
     if (allRooms.length === 0) {
-      return NextResponse.json([]);
+      return NextResponse.json({
+        data: [],
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        },
+      });
     }
 
     const pipeline = redis.pipeline();
@@ -25,13 +38,22 @@ export async function GET() {
 
     const activeRooms = allRooms.filter((_, index) => {
       const ttl = ttls[index];
-      // Filter out keys that don't exist (ttl === -2)
-      // Keep keys that exist (ttl > 0 for expiring, ttl === -1 for persistent)
-      // If user strictly meant "not 0", we'll filter out 0 as well if it ever returns 0 (which usually means expired)
       return ttl !== -2 && ttl !== 0;
     });
 
-    return NextResponse.json(activeRooms);
+    const total = activeRooms.length;
+    const totalPages = Math.ceil(total / limit);
+    const paginatedRooms = activeRooms.slice(skip, skip + limit);
+
+    return NextResponse.json({
+      data: paginatedRooms,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error("Error fetching rooms:", error);
     return NextResponse.json(

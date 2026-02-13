@@ -12,6 +12,10 @@ import {
   LogOut,
   RefreshCcw,
   LayoutList,
+  Copy,
+  Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/eden";
 
@@ -23,6 +27,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { RoomForm } from "@/components/admin/RoomForm";
+import { keepPreviousData } from "@tanstack/react-query";
 
 type Room = {
   roomId: string;
@@ -32,12 +37,26 @@ type Room = {
   createdAt: string;
 };
 
+type PaginatedResponse = {
+  data: Room[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+};
+
 export default function AdminDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
   // Stats
   const { data: stats, refetch: refetchStats } = useQuery({
@@ -51,19 +70,23 @@ export default function AdminDashboard() {
 
   // Rooms Query
   const {
-    data: rooms,
+    data: roomsData,
     isLoading,
     isError,
     refetch: refetchRooms,
     isRefetching,
-  } = useQuery<Room[]>({
-    queryKey: ["admin-rooms"],
+  } = useQuery<PaginatedResponse>({
+    queryKey: ["admin-rooms", page, limit],
     queryFn: async () => {
-      const res = await fetch("/api/admin/rooms");
+      const res = await fetch(`/api/admin/rooms?page=${page}&limit=${limit}`);
       if (!res.ok) throw new Error("Failed to fetch rooms");
       return res.json();
     },
+    placeholderData: keepPreviousData,
   });
+
+  const rooms = roomsData?.data;
+  const pagination = roomsData?.pagination;
 
   const handleRefresh = () => {
     refetchRooms();
@@ -134,6 +157,13 @@ export default function AdminDashboard() {
       setDeletingRoom(null);
     },
   });
+
+  const handleCopyLink = (roomId: string) => {
+    const link = `${window.location.origin}/room/${roomId}`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(roomId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -217,7 +247,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col gap-4 pb-2">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-zinc-100">
-              Active Rooms ({rooms?.length || 0})
+              Active Rooms ({pagination?.total || 0})
             </h2>
             <span className="text-xs text-zinc-500 font-mono">
               Rooms expire after 24 hours of inactivity
@@ -237,80 +267,120 @@ export default function AdminDashboard() {
             No active rooms found.
           </div>
         ) : (
-          <div className="w-full overflow-x-auto border border-zinc-800">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-900/50 text-zinc-500 uppercase text-xs">
-                <tr>
-                  <th className="p-3 font-medium border-b border-zinc-800">
-                    Name / ID
-                  </th>
-                  <th className="p-3 font-medium border-b border-zinc-800 hidden sm:table-cell">
-                    Description
-                  </th>
-                  <th className="p-3 font-medium border-b border-zinc-800 hidden md:table-cell">
-                    Created
-                  </th>
-                  <th className="p-3 font-medium border-b border-zinc-800 text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800 bg-zinc-950/30">
-                {rooms?.map((room) => (
-                  <tr
-                    key={room.roomId}
-                    className="hover:bg-zinc-900/40 transition-colors"
-                  >
-                    <td className="p-3 font-medium">
-                      <div className="flex flex-col">
-                        {room.roomName ? (
-                          <>
-                            <span className="text-zinc-200">
-                              {room.roomName}
-                            </span>
-                            <span className="text-[10px] text-zinc-600 font-mono">
+          <div className="w-full flex flex-col gap-4">
+            <div className="w-full overflow-x-auto border border-zinc-800">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-zinc-900/50 text-zinc-500 uppercase text-xs">
+                  <tr>
+                    <th className="p-3 font-medium border-b border-zinc-800">
+                      Name / ID
+                    </th>
+                    <th className="p-3 font-medium border-b border-zinc-800 hidden sm:table-cell">
+                      Description
+                    </th>
+                    <th className="p-3 font-medium border-b border-zinc-800 hidden md:table-cell">
+                      Created
+                    </th>
+                    <th className="p-3 font-medium border-b border-zinc-800 text-right">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800 bg-zinc-950/30">
+                  {rooms?.map((room) => (
+                    <tr
+                      key={room.roomId}
+                      className="hover:bg-zinc-900/40 transition-colors"
+                    >
+                      <td className="p-3 font-medium">
+                        <div className="flex flex-col">
+                          {room.roomName ? (
+                            <>
+                              <span className="text-zinc-200">
+                                {room.roomName}
+                              </span>
+                              <span className="text-[10px] text-zinc-600 font-mono">
+                                {room.roomId}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-zinc-200 font-mono">
                               {room.roomId}
                             </span>
-                          </>
-                        ) : (
-                          <span className="text-zinc-200 font-mono">
-                            {room.roomId}
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 text-zinc-400 max-w-[200px] truncate hidden sm:table-cell text-xs">
+                        {room.description || (
+                          <span className="text-zinc-700 italic">
+                            No description
                           </span>
                         )}
-                      </div>
-                    </td>
-                    <td className="p-3 text-zinc-400 max-w-[200px] truncate hidden sm:table-cell text-xs">
-                      {room.description || (
-                        <span className="text-zinc-700 italic">
-                          No description
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-zinc-500 font-mono text-xs hidden md:table-cell">
-                      {format(new Date(room.createdAt), "MM/dd/yy HH:mm")}
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => setEditingRoom(room)}
-                          className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeletingRoom(room)}
-                          className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-zinc-800 transition-colors cursor-pointer"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </td>
+                      <td className="p-3 text-zinc-500 font-mono text-xs hidden md:table-cell">
+                        {format(new Date(room.createdAt), "MM/dd/yy HH:mm")}
+                      </td>
+                      <td className="p-3 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => handleCopyLink(room.roomId)}
+                            className="p-1.5 text-zinc-500 hover:text-blue-500 hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="Copy Link"
+                          >
+                            {copiedId === room.roomId ? (
+                              <Check size={14} className="text-green-500" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setEditingRoom(room)}
+                            className="p-1.5 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="Edit"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingRoom(room)}
+                            className="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-zinc-800 pt-4">
+                <div className="text-xs text-zinc-500">
+                  Page {pagination.page} of {pagination.totalPages}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setPage((p) => Math.min(pagination.totalPages, p + 1))
+                    }
+                    disabled={page === pagination.totalPages}
+                    className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
