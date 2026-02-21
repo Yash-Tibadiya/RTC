@@ -57,6 +57,7 @@ const RoomPage = () => {
     isLoading, // Replaced isLoading: isCompleting
   } = useCompletion({
     api: "/api/completion",
+    streamProtocol: "text",
     onError: (err) => console.error("Completion error:", err),
   });
 
