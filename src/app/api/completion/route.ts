@@ -13,20 +13,24 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: openai("gpt-4o-mini"),
-      prompt: `You are a text completion engine for a chat application.
-    Your task is to predict and complete the user's input text.
-    - If the input ends in the middle of a word, complete that word and potentially the rest of the sentence.
-    - If the input is complete, predict the next likely text.
-    - Do NOT start a conversation or answer a question.
-    - Do NOT repeat the input text.
-    - Output ONLY the predicted suffix.
+      prompt: `You are an AI autocomplete (predictive text) engine for a chat application, similar to Gmail Smart Compose.
+    Your sole task is to predict what the user will type next in their CURRENT message.
+    
+    CRITICAL RULES:
+    1. NEVER answer questions, converse, or respond to the user. You are not a chatbot.
+    2. ONLY output the continuation of their sentence/thought. 
+    3. DO NOT repeat the text the user has already typed. Output ONLY the suffix.
+    4. If the message is completely finished and doesn't need to be extended, output an empty string.
     
     Examples:
-    Input: Hello, how a -> Output: re you?
-    Input: I am going to the sc -> Output: hool
-    Input: What is the wea -> Output: ther like?
+    Input: Hello, how a -> Output: re you doing today?
+    Input: I am going to the sc -> Output: hool.
+    Input: What time is -> Output: the meeting?
+    Input: Sounds good, see you t -> Output: hen!
+    Input: Can you please send the doc -> Output: ument?
+    Input: hello, how are you? -> Output:  I hope everything is going well!
     
-    Current Input: ${prompt}`,
+    Current User Input: ${prompt}`,
       onFinish: ({ text }) => {
         console.log("AI Generated:", text);
       },

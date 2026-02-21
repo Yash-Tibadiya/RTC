@@ -476,75 +476,74 @@ const RoomPage = () => {
 
             <div className="p-4 border-t border-zinc-800 bg-zinc-900/30">
               <div className="flex gap-4">
-                <div className="flex-1 relative group">
-                  {/* Ghost Text Overlay - Z-Index 20 to sit ON TOP of textarea */}
-                  <div className="absolute inset-0 py-3 pl-8 pr-4 text-sm pointer-events-none whitespace-pre-wrap wrap-break-word min-h-[46px] overflow-hidden z-20">
-                    <span className="opacity-0">{input}</span>
-                    {completion && input.length > 0 && (
-                      <span className="text-zinc-500 opacity-60">
-                        {completion}
-                      </span>
-                    )}
-                  </div>
+                <div className="flex-1 w-full">
+                  {/* Container ensuring EXACT matching typography and box model using CSS Grid */}
+                  <div className="grid grid-cols-1 grid-rows-1 relative w-full min-h-[46px] bg-transparent border border-zinc-800 focus-within:border-zinc-700 transition-colors group">
+                    {/* Ghost Text Overlay */}
+                    <div
+                      className="col-start-1 row-start-1 py-3 pl-8 pr-4 text-sm pointer-events-none whitespace-pre-wrap wrap-break-word z-10"
+                      style={{ fontFamily: "inherit", lineHeight: "inherit" }}
+                    >
+                      <span className="opacity-0">{input}</span>
+                      {completion && input.length > 0 && (
+                        <span className="text-zinc-500 opacity-60">
+                          {completion}
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Debug Info - Visible for debugging */}
-                  <div className="absolute -top-10 right-0 text-[10px] text-zinc-400 font-mono bg-zinc-900 border border-zinc-800 p-1 rounded z-50">
-                    {JSON.stringify({
-                      completion: completion?.slice(0, 10),
-                      inputLen: input.length,
-                    })}
-                  </div>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse z-30 pointer-events-none">
+                      {">"}
+                    </span>
 
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse z-10 pointer-events-none">
-                    {">"}
-                  </span>
-
-                  <textarea
-                    ref={inputRef}
-                    autoFocus
-                    rows={1}
-                    value={input}
-                    style={{ backgroundColor: "transparent" }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (input.trim()) {
-                          sendMessage({ text: input });
-                          stop();
-                          inputRef.current?.focus();
+                    <textarea
+                      ref={inputRef}
+                      autoFocus
+                      rows={1}
+                      value={input}
+                      style={{ backgroundColor: "transparent" }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (input.trim()) {
+                            sendMessage({ text: input });
+                            stop();
+                            inputRef.current?.focus();
+                          }
                         }
-                      }
-                      if (e.key === "Tab" && completion) {
-                        e.preventDefault();
-                        setInput(input + completion);
-                        stop();
-                      }
-                    }}
-                    placeholder={input.length === 0 ? "Type message..." : ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setInput(val);
-
-                      if (timeoutRef.current) {
-                        clearTimeout(timeoutRef.current);
-                      }
-
-                      timeoutRef.current = setTimeout(() => {
-                        if (val.length > 2) {
-                          console.log("Triggering completion for:", val);
-                          complete(val);
-                        } else {
+                        if (e.key === "Tab" && completion) {
+                          e.preventDefault();
+                          setInput(input + completion);
                           stop();
                         }
-                      }, 500);
-                    }}
-                    className="relative z-10 w-full bg-transparent border border-zinc-800 focus:border-zinc-700 focus:outline-none transition-colors text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm resize-none overflow-hidden min-h-[46px]"
-                  />
+                      }}
+                      placeholder={input.length === 0 ? "Type message..." : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setInput(val);
+
+                        if (timeoutRef.current) {
+                          clearTimeout(timeoutRef.current);
+                        }
+
+                        timeoutRef.current = setTimeout(() => {
+                          if (val.length > 2) {
+                            console.log("Triggering completion for:", val);
+                            complete(val);
+                          } else {
+                            stop();
+                          }
+                        }, 500);
+                      }}
+                      className="col-start-1 row-start-1 relative z-20 w-full bg-transparent focus:outline-none text-zinc-100 placeholder:text-zinc-700 py-3 pl-8 pr-4 text-sm resize-none overflow-hidden"
+                    />
+                  </div>
                 </div>
 
                 <button
                   onClick={() => {
                     sendMessage({ text: input });
+
                     inputRef.current?.focus();
                   }}
                   disabled={!input.trim() || isSending}
