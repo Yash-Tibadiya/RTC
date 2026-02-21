@@ -492,7 +492,7 @@ const RoomPage = () => {
                       )}
                     </div>
 
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-green-500 animate-pulse z-30 pointer-events-none">
+                    <span className="absolute left-4 top-3 text-green-500 animate-pulse z-30 pointer-events-none">
                       {">"}
                     </span>
 
